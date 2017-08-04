@@ -15,8 +15,34 @@
   .. seealso:: https://bittrex.com/Home/Api
 """
 
+import argparse
 import json
 import requests
+import time
+
+BASE_URL = 'https://bittrex.com/api/v1.1/'
+
+def main():
+    """
+    Process command-line arguments and initialize trading routines.
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-k', '--key')
+    parser.add_argument('-s', '--secret')
+    args = parser.parse_args()
+
+def sign(key, secret):
+    """
+    Create the apikey using HMAC-SHA512 signing.
+
+    :param key: Bittrex issued API key.
+    :param secret: Bittrex issued API secret.
+
+    :return: string
+
+    .. seealso:: https://www.bittrex.com/Manage#sectionApi
+    """
+    noonce = int(time.time())
 
 def request(method, params=None):
     """
@@ -29,7 +55,7 @@ def request(method, params=None):
     """
     params = ('?' + params if params else '')
 
-    req = requests.get('https://bittrex.com/api/v1.1/' + method + params)
+    req = requests.get(BASE_URL + method + params)
     return json.loads(req.text)
 
 def public_markets():
@@ -254,8 +280,5 @@ def account_withdrawl_history(currency):
         'currency': currency
     })
 
-#
-# BEGIN PROGRAM
-#
 if __name__ == '__main__':
-    print public_markets()
+    main()
