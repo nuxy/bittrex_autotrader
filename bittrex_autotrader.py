@@ -16,8 +16,11 @@
 """
 
 import argparse
+import hashlib
+import hmac
 import json
 import requests
+import sys
 import time
 
 BASE_URL = 'https://bittrex.com/api/v1.1/'
@@ -27,35 +30,58 @@ def main():
     Process command-line arguments and initialize trading routines.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('-k', '--key')
-    parser.add_argument('-s', '--secret')
+    parser.add_argument('-k', '--key', required=True)
+    parser.add_argument('-s', '--secret', required=True)
+
+    global args
     args = parser.parse_args()
 
-def sign(key, secret):
-    """
-    Create the apikey using HMAC-SHA512 signing.
+    print 'Just what do you think you are doing, Dave?'
+    sys.exit()
 
-    :param key: Bittrex issued API key.
+def sign(secret, message):
+    """
+    Sign the message using the HMAC algorithm.
+
     :param secret: Bittrex issued API secret.
+    :param message: Message to convert.
 
     :return: string
 
     .. seealso:: https://www.bittrex.com/Manage#sectionApi
     """
-    noonce = int(time.time())
+    return hmac.new(secret, message, hashlib.sha256).hexdigest()
 
-def request(method, params=None):
+def request(method, params=None, signed=False):
     """
-    Compose a request and send to the Bittrex API.
+    Construct an HTTP request and send to the Bittrex API.
 
     :param method: URI resource that references an API service.
     :param params: Object that contains key/value parameters (optional).
+    :param signed: Authenticate using a signed header (optional).
 
     :return: dict
     """
-    params = ('?' + params if params else '')
+    url = BASE_URL + method
 
-    req = requests.get(BASE_URL + method + params)
+    if params is None:
+        params = {}
+
+    if signed == True:
+        params['apikey'] = args.key
+        params['nonce'] = str(int(time.time()))
+
+    search = []
+    for key, value in params.iteritems():
+        search.append(key + '=' + value)
+
+    headers = {}
+    if signed == True:
+        url += '?' + '&'.join(search)
+
+        headers['apisign'] = sign(args.secret, url)
+
+    req = requests.get(url, headers=headers)
     return json.loads(req.text)
 
 def public_markets():
@@ -142,7 +168,7 @@ def market_buy_limit(market, quantity, rate):
         'market': market,
         'quantity': quantity,
         'rate': rate
-    })
+    }, signed=True)
 
 def market_sell_limit(market, quantity, rate):
     """
@@ -158,7 +184,7 @@ def market_sell_limit(market, quantity, rate):
         'market': market,
         'quantity': quantity,
         'rate': rate
-    })
+    }, signed=True)
 
 def market_cancel(uuid):
     """
@@ -168,7 +194,7 @@ def market_cancel(uuid):
     """
     return request('market/cancel', {
         'uuid': uuid
-    })
+    }, signed=True)
 
 def market_open_orders(market):
     """
@@ -180,7 +206,7 @@ def market_open_orders(market):
     """
     return request('market/getopenorders', {
         'market': market
-    })
+    }, signed=True)
 
 def account_balances():
     """
@@ -188,7 +214,7 @@ def account_balances():
 
     :return: dict
     """
-    return request('account/getbalances')
+    return request('account/getbalances', signed=True)
 
 def account_balance(currency):
     """
@@ -200,7 +226,7 @@ def account_balance(currency):
     """
     return request('account/getbalance', {
         'currency': currency
-    })
+    }, signed=True)
 
 def account_deposit_address(currency):
     """
@@ -212,7 +238,7 @@ def account_deposit_address(currency):
     """
     return request('account/getdepositaddress', {
         'currency': currency
-    })
+    }, signed=True)
 
 def account_withdraw(currency, quantity, address, paymentid):
     """
@@ -230,7 +256,7 @@ def account_withdraw(currency, quantity, address, paymentid):
         'quantity': quantity,
         'address': address,
         'paymentid': paymentid
-    })
+    }, signed=True)
 
 def account_order(uuid):
     """
@@ -242,7 +268,7 @@ def account_order(uuid):
     """
     return request('account/getorder', {
         'uuid': uuid
-    })
+    }, signed=True)
 
 def account_order_history(market):
     """
@@ -254,7 +280,7 @@ def account_order_history(market):
     """
     return request('account/getorderhistory', {
         'market': market
-    })
+    }, signed=True)
 
 def account_deposit_history(currency):
     """
@@ -266,7 +292,7 @@ def account_deposit_history(currency):
     """
     return request('account/getdeposithistory', {
         'currency': currency
-    })
+    }, signed=True)
 
 def account_withdrawl_history(currency):
     """
@@ -278,7 +304,7 @@ def account_withdrawl_history(currency):
     """
     return request('account/getwithdrawlhistory', {
         'currency': currency
-    })
+    }, signed=True)
 
 if __name__ == '__main__':
     main()
