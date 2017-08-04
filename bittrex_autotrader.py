@@ -51,7 +51,7 @@ def request(method, params=None):
     :param method: URI resource that references an API service.
     :param params: Object that contains key/value parameters (optional).
 
-    :return: object
+    :return: dict
     """
     params = ('?' + params if params else '')
 
@@ -62,7 +62,7 @@ def public_markets():
     """
     Get the open and available trading markets along with other meta data.
 
-    :return: object
+    :return: dict
     """
     return request('public/getmarkets')
 
@@ -70,7 +70,7 @@ def public_currencies():
     """
     Get all supported currencies along with other meta data.
 
-    :return: object
+    :return: dict
     """
     return request('public/getcurrencies')
 
@@ -78,7 +78,7 @@ def public_ticker():
     """
     Get the current tick values for a market.
 
-    :return: object
+    :return: dict
     """
     return request('public/getticker')
 
@@ -86,7 +86,7 @@ def public_market_summaries():
     """
     Get the last 24 hour summary of all active exchanges.
 
-    :return: object
+    :return: dict
     """
     return request('public/getmarketsummaries')
 
@@ -96,7 +96,7 @@ def public_market_summary(market):
 
     :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :return: object
+    :return: dict
     """
     return request('public/getmarketsummary', {
         'market': market
@@ -108,7 +108,7 @@ def public_market_history(market):
 
     :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :return: object
+    :return: dict
     """
     return request('public/getmarkethistory', {
         'market': market
@@ -121,7 +121,7 @@ def public_order_book(market, book_type):
     :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
     :param book_type: buy, sell or both to identify the type of orderbook.
 
-    :return: object
+    :return: dict
     """
     return request('public/getorderbook', {
         'market': market,
@@ -136,7 +136,7 @@ def market_buy_limit(market, quantity, rate):
     :param quantity: The amount to purchase.
     :param rate: Rate at which to place the order.
 
-    :return: object
+    :return: dict
     """
     return request('market/buylimit', {
         'market': market,
@@ -152,7 +152,7 @@ def market_sell_limit(market, quantity, rate):
     :param quantity: The amount to sell.
     :param rate: Rate at which to place the order.
 
-    :return: object
+    :return: dict
     """
     return request('market/selllimit', {
         'market': market,
@@ -176,7 +176,7 @@ def market_open_orders(market):
 
     :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :return: object
+    :return: dict
     """
     return request('market/getopenorders', {
         'market': market
@@ -186,7 +186,7 @@ def account_balances():
     """
     Get all balances from your account.
 
-    :return: object
+    :return: dict
     """
     return request('account/getbalances')
 
@@ -196,7 +196,7 @@ def account_balance(currency):
 
     :param currency: String literal (ie. BTC). If omitted, return all currency.
 
-    :return: object
+    :return: dict
     """
     return request('account/getbalance', {
         'currency': currency
@@ -208,7 +208,7 @@ def account_deposit_address(currency):
 
     :param currency: String literal (ie. BTC). If omitted, return all currency.
 
-    :return: object
+    :return: dict
     """
     return request('account/getdepositaddress', {
         'currency': currency
@@ -223,7 +223,7 @@ def account_withdraw(currency, quantity, address, paymentid):
     :param address: The address where to send the funds.
     :param paymentid: CryptoNotes/BitShareX/Nxt field (memo/paymentid optional).
 
-    :return: object
+    :return: dict
     """
     return request('account/getwithdraw', {
         'currency': currency,
@@ -238,7 +238,7 @@ def account_order(uuid):
 
     :param uuid: UUID of buy or sell order.
 
-    :return: object
+    :return: dict
     """
     return request('account/getorder', {
         'uuid': uuid
@@ -250,7 +250,7 @@ def account_order_history(market):
 
     :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :return: object
+    :return: dict
     """
     return request('account/getorderhistory', {
         'market': market
@@ -262,7 +262,7 @@ def account_deposit_history(currency):
 
     :param currency: String literal (ie. BTC). If omitted, return all currency.
 
-    :return: object
+    :return: dict
     """
     return request('account/getdeposithistory', {
         'currency': currency
@@ -274,7 +274,7 @@ def account_withdrawl_history(currency):
 
     :param currency: String literal (ie. BTC). If omitted, return all currency.
 
-    :return: object
+    :return: dict
     """
     return request('account/getwithdrawlhistory', {
         'currency': currency
