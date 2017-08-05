@@ -51,7 +51,7 @@ def sign(secret, message):
     """
     return hmac.new(secret, message, hashlib.sha256).hexdigest()
 
-def request(method, params=None, signed=False):
+def request(method, params=None, headers=None, signed=False):
     """
     Construct a HTTP request and send to the Bittrex API.
 
@@ -63,29 +63,38 @@ def request(method, params=None, signed=False):
     """
     url = [BASE_URL + method]
 
+    # Add parameters required for signed requests.
     if params is None:
         params = {}
 
-    # Add parameters required for signed requests.
     if signed == True:
         params['apikey'] = args.key
         params['nonce'] = str(int(time.time()))
 
-    query_str = []
-
     # Create URL query string from parameter items.
+    query_str = []
     for name, value in params.iteritems():
         query_str.append(name + '=' + value)
 
-    headers = {}
+    url.append('?' + '&'.join(query_str))
 
     # Create the signed HTTP header.
+    if headers is None:
+        headers = {}
+
     if signed == True:
-        url.append('?' + '&'.join(query_str))
         headers['apisign'] = sign(args.secret, ''.join(url))
 
+    # Send the API request.
     req = requests.get(''.join(url), headers=headers)
-    return req.json()
+    res = req.json()
+
+    if res['success'] == False:
+        print >> sys.stderr, "Bittex response: %s" % res['message']
+        sys.exit(1)
+
+    # Return dict on success.
+    return res
 
 def public_markets():
     """
