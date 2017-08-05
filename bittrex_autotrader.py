@@ -18,7 +18,6 @@
 import argparse
 import hashlib
 import hmac
-import json
 import requests
 import sys
 import time
@@ -54,7 +53,7 @@ def sign(secret, message):
 
 def request(method, params=None, signed=False):
     """
-    Construct an HTTP request and send to the Bittrex API.
+    Construct a HTTP request and send to the Bittrex API.
 
     :param method: URI resource that references an API service.
     :param params: Object that contains key/value parameters (optional).
@@ -62,27 +61,31 @@ def request(method, params=None, signed=False):
 
     :return: dict
     """
-    url = BASE_URL + method
+    url = [BASE_URL + method]
 
     if params is None:
         params = {}
 
+    # Add parameters required for signed requests.
     if signed == True:
         params['apikey'] = args.key
         params['nonce'] = str(int(time.time()))
 
-    search = []
-    for key, value in params.iteritems():
-        search.append(key + '=' + value)
+    query_str = []
+
+    # Create URL query string from parameter items.
+    for name, value in params.iteritems():
+        query_str.append(name + '=' + value)
 
     headers = {}
+
+    # Create the signed HTTP header.
     if signed == True:
-        url += '?' + '&'.join(search)
+        url.append('?' + '&'.join(query_str))
+        headers['apisign'] = sign(args.secret, ''.join(url))
 
-        headers['apisign'] = sign(args.secret, url)
-
-    req = requests.get(url, headers=headers)
-    return json.loads(req.text)
+    req = requests.get(''.join(url), headers=headers)
+    return req.json()
 
 def public_markets():
     """
