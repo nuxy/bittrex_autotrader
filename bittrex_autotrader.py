@@ -16,9 +16,13 @@
 """
 
 import argparse
+import csv
 import hashlib
 import hmac
+import matplotlib.dates as dates
+import numpy
 import requests
+import StringIO
 import sys
 import time
 
@@ -26,30 +30,18 @@ BASE_URL = 'https://bittrex.com/api/v1.1/'
 
 def main():
     """
-    Process command-line arguments and initialize trading routines.
+    Process command-line arguments and start autotrading.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('-k', '--key', required=True)
     parser.add_argument('-s', '--secret', required=True)
+    parser.add_argument('-m', '--market', required=True)
 
     global args
     args = parser.parse_args()
 
     print 'Just what do you think you are doing, Dave?'
     sys.exit()
-
-def sign(secret, message):
-    """
-    Sign the message using the HMAC algorithm.
-
-    :param secret: Bittrex issued API secret.
-    :param message: Message to convert.
-
-    :return: string
-
-    .. seealso:: https://www.bittrex.com/Manage#sectionApi
-    """
-    return hmac.new(secret, message, hashlib.sha256).hexdigest()
 
 def request(method, params=None, headers=None, signed=False):
     """
@@ -59,7 +51,7 @@ def request(method, params=None, headers=None, signed=False):
     :param params: Object that contains key/value parameters (optional).
     :param signed: Authenticate using a signed header (optional).
 
-    :return: dict
+    :return: list
     """
     url = [BASE_URL + method]
 
@@ -93,9 +85,70 @@ def request(method, params=None, headers=None, signed=False):
         print >> sys.stderr, "Bittex response: %s" % res['message']
         sys.exit(1)
 
-    # Return dict on success.
-    return res
+    # Return list of dicts.
+    return res['result']
 
+def sign(secret, message):
+    """
+    Sign the message using the HMAC algorithm.
+
+    :param secret: Bittrex issued API secret.
+    :param message: Message to convert.
+
+    :return: string
+
+    .. seealso:: https://www.bittrex.com/Manage#sectionApi
+    """
+    return hmac.new(secret, message, hashlib.sha256).hexdigest()
+
+#
+# Trading functions.
+#
+def trade_test():
+    """
+    This code below is a work in progress.
+    """
+    market_history = numpy.loadtxt(
+        StringIO.StringIO(
+            list_dict_to_csv(
+                public_market_history(args.market),
+                ['TimeStamp', 'Price', 'Quantity']
+            )
+        ),
+        converters={1:dates.datestr2num},
+        delimiter=',',
+        usecols=(1, 2, 6)
+    )
+
+    print market_history
+
+#
+# Helper functions.
+#
+def list_dict_to_csv(data, keys=None):
+    """
+    Returns list of prefiltered dictionary items as CSV string.
+
+    :param data: Data to convert.
+    :param keys: Columns to exclude from result.
+
+    :return: string
+    """
+    output = StringIO.StringIO()
+    writer = csv.DictWriter(output, data[0].keys())
+
+    # Filter items by key names.
+    for item in data:
+        filtered_item = dict(
+            (key, value) for key, value in item.iteritems() if key in keys
+        )
+        writer.writerow(filtered_item)
+
+    return output.getvalue()
+
+#
+# Bittrex API methods.
+#
 def public_markets():
     """
     Get the open and available trading markets along with other meta data.
@@ -318,5 +371,8 @@ def account_withdrawl_history(currency):
         'currency': currency
     }, signed=True)
 
+#
+# Start program.
+#
 if __name__ == '__main__':
     main()
