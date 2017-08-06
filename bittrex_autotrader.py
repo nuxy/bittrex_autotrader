@@ -106,30 +106,43 @@ def sign(secret, message):
 #
 def trade_test():
     """
-    This code below is a work in progress.
+    Discovery work ahead.  Tread lightly.
     """
-    market_history = numpy.loadtxt(
-        list_dict_to_csv(
-            public_market_history(args.market),
-            ['TimeStamp', 'Price', 'Quantity']
-        ),
-        converters={0:dates.datestr2num},
-        delimiter=','
+    market_history = public_market_history(args.market)
+
+    buy_price = numpy_loadtxt(
+        list_of_dict_filter(market_history, 'OrderType', 'BUY'),
+        ['Price']
     )
 
-    #print market_history
+    sell_price = numpy_loadtxt(
+        list_of_dict_filter(market_history, 'OrderType', 'SELL'),
+        ['Price']
+    )
 
 #
 # Helper functions.
 #
-def list_dict_to_csv(data, keys=None):
+def list_of_dict_filter(data, key, value):
+    """
+    Returns list of dictionary items filtered by key/value.
+
+    :param data: Data to filter.
+    :param key: Dictionary key search.
+    :param value: Dictionary key value match.
+
+    :return: list
+    """
+    return [item for index, item in enumerate(data) if data[index].get(key) == value]
+
+def list_of_dict_to_csv(data, keys=None):
     """
     Returns list of prefiltered dictionary items as CSV string.
 
     :param data: Data to convert.
     :param keys: Columns to exclude from result.
 
-    :return: StringIO
+    :return: string
     """
     output = StringIO.StringIO()
 
@@ -141,7 +154,26 @@ def list_dict_to_csv(data, keys=None):
         )
         writer.writerow(filtered_item)
 
-    return StringIO.StringIO(output.getvalue())
+    return output.getvalue()
+
+def numpy_loadtxt(data, keys=None, converters=None):
+    """
+    Returns list of prefiltered dictionary items as ndarray.
+
+    :param data: Data to convert.
+    :param keys: Columns to exclude from result.
+
+    :return: ndarray
+
+    """
+    return numpy.loadtxt(
+        StringIO.StringIO(
+            list_of_dict_to_csv(data, keys)
+        ),
+        converters=converters,
+        delimiter=',',
+        unpack=True
+    )
 
 #
 # Bittrex API methods.
@@ -162,13 +194,17 @@ def public_currencies():
     """
     return request('public/getcurrencies')
 
-def public_ticker():
+def public_ticker(market):
     """
     Get the current tick values for a market.
 
+    :param market: String literal (ie. BTC-LTC).
+
     :return: dict
     """
-    return request('public/getticker')
+    return request('public/getticker', {
+        'market': market
+    })
 
 def public_market_summaries():
     """
