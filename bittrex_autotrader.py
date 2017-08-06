@@ -109,18 +109,15 @@ def trade_test():
     This code below is a work in progress.
     """
     market_history = numpy.loadtxt(
-        StringIO.StringIO(
-            list_dict_to_csv(
-                public_market_history(args.market),
-                ['TimeStamp', 'Price', 'Quantity']
-            )
+        list_dict_to_csv(
+            public_market_history(args.market),
+            ['TimeStamp', 'Price', 'Quantity']
         ),
-        converters={1:dates.datestr2num},
-        delimiter=',',
-        usecols=(1, 2, 6)
+        converters={0:dates.datestr2num},
+        delimiter=','
     )
 
-    print market_history
+    #print market_history
 
 #
 # Helper functions.
@@ -132,19 +129,19 @@ def list_dict_to_csv(data, keys=None):
     :param data: Data to convert.
     :param keys: Columns to exclude from result.
 
-    :return: string
+    :return: StringIO
     """
     output = StringIO.StringIO()
-    writer = csv.DictWriter(output, data[0].keys())
 
     # Filter items by key names.
+    writer = csv.DictWriter(output, fieldnames=keys)
     for item in data:
         filtered_item = dict(
             (key, value) for key, value in item.iteritems() if key in keys
         )
         writer.writerow(filtered_item)
 
-    return output.getvalue()
+    return StringIO.StringIO(output.getvalue())
 
 #
 # Bittrex API methods.
