@@ -16,10 +16,10 @@
 """
 
 import argparse
+import ConfigParser
 import csv
 import hashlib
 import hmac
-import matplotlib.dates as dates
 import numpy
 import requests
 import StringIO
@@ -32,13 +32,24 @@ def main():
     """
     Process command-line arguments and start autotrading.
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-k', '--key', required=True)
-    parser.add_argument('-s', '--secret', required=True)
-    parser.add_argument('-m', '--market', required=True)
+    global config
 
-    global args
-    args = parser.parse_args()
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('-c', '--config', metavar='FILE')
+
+    args, remaining_args = arg_parser.parse_known_args()
+
+    if args.config:
+        config_parser = ConfigParser.SafeConfigParser()
+        config_parser.read([args.config])
+
+        config = dict(config_parser.items('config'))
+    else:
+        arg_parser.add_argument('-k', '--apikey', required=True)
+        arg_parser.add_argument('-s', '--secret', required=True)
+        arg_parser.add_argument('-m', '--market', required=True)
+
+        config = vars(arg_parser.parse_args(remaining_args))
 
     print 'Just what do you think you are doing, Dave?'
     sys.exit()
@@ -60,7 +71,7 @@ def request(method, params=None, headers=None, signed=False):
         params = {}
 
     if signed == True:
-        params['apikey'] = args.key
+        params['apikey'] = config['key']
         params['nonce'] = str(int(time.time()))
 
     # Create URL query string from parameter items.
@@ -75,7 +86,7 @@ def request(method, params=None, headers=None, signed=False):
         headers = {}
 
     if signed == True:
-        headers['apisign'] = sign(args.secret, ''.join(url))
+        headers['apisign'] = sign(config['secret'], ''.join(url))
 
     # Send the API request.
     req = requests.get(''.join(url), headers=headers)
@@ -108,7 +119,7 @@ def trade_test():
     """
     Discovery work ahead.  Tread lightly.
     """
-    market_history = public_market_history(args.market)
+    market_history = public_market_history(config['market'])
 
     buy_price = numpy_loadtxt(
         list_of_dict_filter(market_history, 'OrderType', 'BUY'),
