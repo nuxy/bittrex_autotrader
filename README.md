@@ -6,7 +6,7 @@ This is **currently in development**. You have been warned.
 
 ## Dependencies
 
-    $ pip install matplotlib
+    $ pip install humanfriendly
     $ pip install numpy
     $ pip install requests
 
