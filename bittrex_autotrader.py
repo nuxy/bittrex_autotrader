@@ -9,6 +9,12 @@
   http://www.opensource.org/licenses/mit-license.php
 
   .. note::
+  Dependencies:
+    humanfriendly
+    numpy
+    requests
+
+  Notes:
    - This script has been tested to work with Unix-like operating systems
    - This script can be run via cronjob
 
@@ -20,6 +26,7 @@ import ConfigParser
 import csv
 import hashlib
 import hmac
+import humanfriendly
 import numpy
 import requests
 import StringIO
@@ -48,6 +55,7 @@ def main():
         arg_parser.add_argument('-k', '--apikey', required=True)
         arg_parser.add_argument('-s', '--secret', required=True)
         arg_parser.add_argument('-m', '--market', required=True)
+        arg_parser.add_argument('-p', '--spread')
 
         config = vars(arg_parser.parse_args(remaining_args))
 
@@ -119,22 +127,67 @@ def trade_test():
     """
     Discovery work ahead.  Tread lightly.
     """
-    market_history = public_market_history(config['market'])
+    next_trade = 'SELL'
 
-    buy_price = numpy_loadtxt(
-        list_of_dict_filter(market_history, 'OrderType', 'BUY'),
-        ['Price']
-    )
+    while True:
 
-    sell_price = numpy_loadtxt(
-        list_of_dict_filter(market_history, 'OrderType', 'SELL'),
-        ['Price']
-    )
+        # Get BUY/SELL order market totals.
+        market_history = public_market_history(config['market'])
+
+        market = numpy_loadtxt(
+            list_of_dict_filter_by(market_history, 'OrderType', next_trade),
+            ['Price']
+        )
+        market_avg = round(market.mean(), 8)
+        market_max = round(market.max(), 8)
+
+        # Get account balances.
+        available = (public_account_balance(config['market']))['Available']
+
+        # Get ASK/BID orders.
+        ticker = public_ticker(config['market'])
+
+        spread = float(config['spread'])
+
+        stdout = {
+            'cols': [next_trade, 'BTC'],
+            'rows': []
+        }
+
+        if next_trade == 'SELL':
+            ticker_ask = float(ticker['Ask'])
+            trader_ask = round(ticker_ask + (ticker_ask * spread), 8)
+
+            stdout['rows'].append(['Avg', format(market_avg, '.8f')])
+            stdout['rows'].append(['Max', format(market_max, '.8f')])
+            stdout['rows'].append(['Bid', format(ticker_ask, '.8f')])
+            stdout['rows'].append(['Ask', format(trader_ask, '.8f')])
+
+            next_trade = 'BUY'
+
+        else:
+            ticker_bid = float(ticker['Bid'])
+            trader_bid = round(ticker_bid - (ticker_bid * spread), 8)
+
+            stdout['rows'].append(['Avg', format(market_avg, '.8f')])
+            stdout['rows'].append(['Max', format(market_max, '.8f')])
+            stdout['rows'].append(['Ask', format(ticker_bid, '.8f')])
+            stdout['rows'].append(['Bid', format(trader_bid, '.8f')])
+
+            next_trade = 'SELL'
+
+        # Output results.
+        print humanfriendly.tables.format_pretty_table(
+            stdout['rows'],
+            stdout['cols']
+        ), "\n"
+
+        time.sleep(30)
 
 #
 # Helper functions.
 #
-def list_of_dict_filter(data, key, value):
+def list_of_dict_filter_by(data, key, value):
     """
     Returns list of dictionary items filtered by key/value.
 
@@ -144,7 +197,7 @@ def list_of_dict_filter(data, key, value):
 
     :return: list
     """
-    return [item for index, item in enumerate(data) if data[index].get(key) == value]
+    return [item for i, item in enumerate(data) if data[i].get(key) == value]
 
 def list_of_dict_to_csv(data, keys=None):
     """
@@ -193,7 +246,7 @@ def public_markets():
     """
     Get the open and available trading markets along with other meta data.
 
-    :return: dict
+    :return: list
     """
     return request('public/getmarkets')
 
@@ -201,7 +254,7 @@ def public_currencies():
     """
     Get all supported currencies along with other meta data.
 
-    :return: dict
+    :return: list
     """
     return request('public/getcurrencies')
 
@@ -211,7 +264,7 @@ def public_ticker(market):
 
     :param market: String literal (ie. BTC-LTC).
 
-    :return: dict
+    :return: list
     """
     return request('public/getticker', {
         'market': market
@@ -221,7 +274,7 @@ def public_market_summaries():
     """
     Get the last 24 hour summary of all active exchanges.
 
-    :return: dict
+    :return: list
     """
     return request('public/getmarketsummaries')
 
@@ -231,7 +284,7 @@ def public_market_summary(market):
 
     :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :return: dict
+    :return: list
     """
     return request('public/getmarketsummary', {
         'market': market
@@ -243,7 +296,7 @@ def public_market_history(market):
 
     :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :return: dict
+    :return: list
     """
     return request('public/getmarkethistory', {
         'market': market
@@ -256,7 +309,7 @@ def public_order_book(market, book_type):
     :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
     :param book_type: buy, sell or both to identify the type of orderbook.
 
-    :return: dict
+    :return: list
     """
     return request('public/getorderbook', {
         'market': market,
@@ -271,7 +324,7 @@ def market_buy_limit(market, quantity, rate):
     :param quantity: The amount to purchase.
     :param rate: Rate at which to place the order.
 
-    :return: dict
+    :return: list
     """
     return request('market/buylimit', {
         'market': market,
@@ -287,7 +340,7 @@ def market_sell_limit(market, quantity, rate):
     :param quantity: The amount to sell.
     :param rate: Rate at which to place the order.
 
-    :return: dict
+    :return: list
     """
     return request('market/selllimit', {
         'market': market,
@@ -311,7 +364,7 @@ def market_open_orders(market):
 
     :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :return: dict
+    :return: list
     """
     return request('market/getopenorders', {
         'market': market
@@ -321,7 +374,7 @@ def account_balances():
     """
     Get all balances from your account.
 
-    :return: dict
+    :return: list
     """
     return request('account/getbalances', signed=True)
 
@@ -331,7 +384,7 @@ def account_balance(currency):
 
     :param currency: String literal (ie. BTC). If omitted, return all currency.
 
-    :return: dict
+    :return: list
     """
     return request('account/getbalance', {
         'currency': currency
@@ -343,7 +396,7 @@ def account_deposit_address(currency):
 
     :param currency: String literal (ie. BTC). If omitted, return all currency.
 
-    :return: dict
+    :return: list
     """
     return request('account/getdepositaddress', {
         'currency': currency
@@ -358,7 +411,7 @@ def account_withdraw(currency, quantity, address, paymentid):
     :param address: The address where to send the funds.
     :param paymentid: CryptoNotes/BitShareX/Nxt field (memo/paymentid optional).
 
-    :return: dict
+    :return: list
     """
     return request('account/getwithdraw', {
         'currency': currency,
@@ -373,7 +426,7 @@ def account_order(uuid):
 
     :param uuid: UUID of buy or sell order.
 
-    :return: dict
+    :return: list
     """
     return request('account/getorder', {
         'uuid': uuid
@@ -385,7 +438,7 @@ def account_order_history(market):
 
     :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :return: dict
+    :return: list
     """
     return request('account/getorderhistory', {
         'market': market
@@ -397,7 +450,7 @@ def account_deposit_history(currency):
 
     :param currency: String literal (ie. BTC). If omitted, return all currency.
 
-    :return: dict
+    :return: list
     """
     return request('account/getdeposithistory', {
         'currency': currency
@@ -409,7 +462,7 @@ def account_withdrawl_history(currency):
 
     :param currency: String literal (ie. BTC). If omitted, return all currency.
 
-    :return: dict
+    :return: list
     """
     return request('account/getwithdrawlhistory', {
         'currency': currency
