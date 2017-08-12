@@ -62,42 +62,46 @@ def main():
     print 'Just what do you think you are doing, Dave?'
     sys.exit()
 
+    submit_order()
+
 def request(method, params=None, headers=None, signed=False):
     """
     Construct a HTTP request and send to the Bittrex API.
 
     :param method: URI resource that references an API service.
-    :param params: Object that contains key/value parameters (optional).
+    :param params: Dictionary that contains key/value parameters (optional).
     :param signed: Authenticate using a signed header (optional).
 
     :return: list
     """
-    url = [BASE_URL + method]
 
     # Add parameters required for signed requests.
     if params is None:
         params = {}
 
     if signed == True:
-        params['apikey'] = config['key']
+        params['apikey'] = config['apikey']
         params['nonce'] = str(int(time.time()))
 
-    # Create URL query string from parameter items.
+    # Create query string from parameter items.
     query_str = []
     for name, value in params.iteritems():
         query_str.append(name + '=' + value)
 
-    url.append('?' + '&'.join(query_str))
+    # Format the URL with query string.
+    uri = [BASE_URL + method]
+    uri.append('?' + '&'.join(query_str))
+    url = ''.join(uri)
 
     # Create the signed HTTP header.
     if headers is None:
         headers = {}
 
     if signed == True:
-        headers['apisign'] = sign(config['secret'], ''.join(url))
+        headers['apisign'] = sign(config['secret'], url)
 
     # Send the API request.
-    req = requests.get(''.join(url), headers=headers)
+    req = requests.get(url, headers=headers)
     res = req.json()
 
     if res['success'] == False:
@@ -118,63 +122,61 @@ def sign(secret, message):
 
     .. seealso:: https://www.bittrex.com/Manage#sectionApi
     """
-    return hmac.new(secret, message, hashlib.sha256).hexdigest()
+    return hmac.new(secret, message, hashlib.sha512).hexdigest()
 
 #
 # Trading functions.
 #
-def trade_test():
+def submit_order(trade_type='BUY'):
     """
-    Discovery work ahead.  Tread lightly.
+    Submit a trade order to Bittrex market; wait until fulfilled.
+
+    :param trade_type: BUY or SELL (default BUY).
     """
-    next_trade = 'SELL'
+    market = config['market']
+    spread = config['spread']
 
     while True:
 
         # Get BUY/SELL order market totals.
-        market_history = public_market_history(config['market'])
+        market_history = public_market_history(market)
 
-        market = numpy_loadtxt(
-            list_of_dict_filter_by(market_history, 'OrderType', next_trade),
+        price_history = numpy_loadtxt(
+            list_of_dict_filter_by(market_history, 'OrderType', trade_type),
             ['Price']
         )
-        market_avg = round(market.mean(), 8)
-        market_max = round(market.max(), 8)
+        market_avg = round(price_history.mean(), 8)
+        market_max = round(price_history.max(), 8)
 
-        # Get account balances.
-        available = (public_account_balance(config['market']))['Available']
+        # Get account balance.
+        available = (account_balance(market))['Available']
 
         # Get ASK/BID orders.
-        ticker = public_ticker(config['market'])
-
-        spread = float(config['spread'])
+        ticker = public_ticker(market)
 
         stdout = {
-            'cols': [next_trade, 'BTC'],
+            'cols': [trade_type, 'BTC'],
             'rows': []
         }
 
-        if next_trade == 'SELL':
+        # Perform trade operations.
+        if trade_type == 'SELL':
             ticker_ask = float(ticker['Ask'])
-            trader_ask = round(ticker_ask + (ticker_ask * spread), 8)
+            trader_ask = round(ticker_ask + (ticker_ask * float(spread)), 8)
 
             stdout['rows'].append(['Avg', format(market_avg, '.8f')])
             stdout['rows'].append(['Max', format(market_max, '.8f')])
             stdout['rows'].append(['Bid', format(ticker_ask, '.8f')])
             stdout['rows'].append(['Ask', format(trader_ask, '.8f')])
 
-            next_trade = 'BUY'
-
         else:
             ticker_bid = float(ticker['Bid'])
-            trader_bid = round(ticker_bid - (ticker_bid * spread), 8)
+            trader_bid = round(ticker_bid - (ticker_bid * float(spread)), 8)
 
             stdout['rows'].append(['Avg', format(market_avg, '.8f')])
             stdout['rows'].append(['Max', format(market_max, '.8f')])
             stdout['rows'].append(['Ask', format(ticker_bid, '.8f')])
             stdout['rows'].append(['Bid', format(trader_bid, '.8f')])
-
-            next_trade = 'SELL'
 
         # Output results.
         print humanfriendly.tables.format_pretty_table(
