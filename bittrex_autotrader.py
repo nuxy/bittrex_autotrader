@@ -8,7 +8,6 @@
   Licensed under the MIT license:
   http://www.opensource.org/licenses/mit-license.php
 
-  .. note::
   Dependencies:
     humanfriendly
     numpy
@@ -37,10 +36,8 @@ BASE_URL = 'https://bittrex.com/api/v1.1/'
 
 def main():
     """
-    Process command-line arguments and start autotrading.
+    Process command-line arguments and start trading.
     """
-    global config
-
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-c', '--config', metavar='FILE')
 
@@ -59,110 +56,117 @@ def main():
 
         config = vars(arg_parser.parse_args(remaining_args))
 
-    print 'Just what do you think you are doing, Dave?'
-    sys.exit()
-
-    submit_order()
-
-def request(method, params=None, headers=None, signed=False):
-    """
-    Construct a HTTP request and send to the Bittrex API.
-
-    :param method: URI resource that references an API service.
-    :param params: Dictionary that contains key/value parameters (optional).
-    :param signed: Authenticate using a signed header (optional).
-
-    :return: list
-    """
-
-    # Add parameters required for signed requests.
-    if params is None:
-        params = {}
-
-    if signed == True:
-        params['apikey'] = config['apikey']
-        params['nonce'] = str(int(time.time()))
-
-    # Create query string from parameter items.
-    query_str = []
-    for name, value in params.iteritems():
-        query_str.append(name + '=' + value)
-
-    # Format the URL with query string.
-    uri = [BASE_URL + method]
-    uri.append('?' + '&'.join(query_str))
-    url = ''.join(uri)
-
-    # Create the signed HTTP header.
-    if headers is None:
-        headers = {}
-
-    if signed == True:
-        headers['apisign'] = sign(config['secret'], url)
-
-    # Send the API request.
-    req = requests.get(url, headers=headers)
-    res = req.json()
-
-    if res['success'] == False:
-        print >> sys.stderr, "Bittex response: %s" % res['message']
-        sys.exit(1)
-
-    # Return list of dicts.
-    return res['result']
-
-def sign(secret, message):
-    """
-    Sign the message using the HMAC algorithm.
-
-    :param secret: Bittrex issued API secret.
-    :param message: Message to convert.
-
-    :return: string
-
-    .. seealso:: https://www.bittrex.com/Manage#sectionApi
-    """
-    return hmac.new(secret, message, hashlib.sha512).hexdigest()
+    # Let's get this party started.
+    BittrexAutoTrader(
+        config['apikey'],
+        config['secret'],
+        config['market'],
+        config['spread']
+    )
 
 #
-# Trading functions.
+# Bittrex API autotrader object.
 #
-def submit_order(trade_type='BUY'):
+class BittrexAutoTrader(object):
     """
-    Submit a trade order to Bittrex market; wait until fulfilled.
-
-    :param trade_type: BUY or SELL (default BUY).
+    Bittrex API autotrader object.
     """
-    market = config['market']
-    spread = config['spread']
 
-    while True:
+    def __init__(self, apikey, secret, market, spread):
+        """
+        Create a new instance of BittrexAutoTrader
+
+        Args:
+            apikey (str):
+                Bittrex issued API key.
+            secret (str):
+                Bittrex issued API secret.
+            market (str):
+                String literal for the market (ie. BTC-LTC).
+            spread (float):
+                BUY/SELL rolling average spread value.
+
+        Attributes:
+            apiReq (BittrexApiRequest):
+                Instance of BittrexApiRequest object.
+            market (str):
+                String literal for the market (ie. BTC-LTC).
+            spread (float):
+                BUY/SELL rolling average spread value.
+        """
+        self.apiReq = BittrexApiRequest(apikey, secret)
+        self.market = market
+        self.spread = spread
+        self.init()
+
+    def init(self):
+        """
+        Initialize trading routines.
+        """
+        active = {}
+
+        while True:
+
+            # Check for active trades.
+            open_orders = self.apiReq.market_open_orders(self.market)
+
+            # If no pending orders exist, submit a new trade.
+            if open_orders:
+                for order in open_orders:
+                    if order['OrderUuid'] == active['OrderUuid']:
+                        break
+                continue
+
+            active = self.submit_order(
+                'SELL' if active and 'BUY' in active['OrderType'] else 'BUY'
+            )
+
+            time.sleep(30)
+
+    def submit_order(self, trade_type='BUY'):
+        """
+        Submit an order to Bittrex market; wait until fulfilled.
+
+        Args:
+            trade_type (str):
+                BUY or SELL (default BUY).
+
+        Returns:
+            dict
+        """
+        currency = self.market.replace('BTC-', '')
 
         # Get BUY/SELL order market totals.
-        market_history = public_market_history(market)
+        market_history = self.apiReq.public_market_history(self.market)
 
-        price_history = numpy_loadtxt(
-            list_of_dict_filter_by(market_history, 'OrderType', trade_type),
+        price_history = BittrexAutoTrader._numpy_loadtxt(
+            BittrexAutoTrader._list_of_dict_filter_by(
+                market_history, 'OrderType', trade_type
+            ),
             ['Price']
         )
         market_avg = round(price_history.mean(), 8)
         market_max = round(price_history.max(), 8)
 
         # Get account balance.
-        available = (account_balance(market))['Available']
+        available = (self.apiReq.account_balance(currency))['Available']
 
         # Get ASK/BID orders.
-        ticker = public_ticker(market)
+        ticker = self.apiReq.public_ticker(self.market)
 
         stdout = {
-            'cols': [trade_type, 'BTC'],
+            'cols': [trade_type, currency],
             'rows': []
         }
 
         # Perform trade operations.
+        order = {}
+
         if trade_type == 'SELL':
             ticker_ask = float(ticker['Ask'])
-            trader_ask = round(ticker_ask + (ticker_ask * float(spread)), 8)
+            trader_ask = round(
+                ticker_ask + (ticker_ask * float(self.spread)), 8
+            )
 
             stdout['rows'].append(['Avg', format(market_avg, '.8f')])
             stdout['rows'].append(['Max', format(market_max, '.8f')])
@@ -171,7 +175,9 @@ def submit_order(trade_type='BUY'):
 
         else:
             ticker_bid = float(ticker['Bid'])
-            trader_bid = round(ticker_bid - (ticker_bid * float(spread)), 8)
+            trader_bid = round(
+                ticker_bid - (ticker_bid * float(self.spread)), 8
+            )
 
             stdout['rows'].append(['Avg', format(market_avg, '.8f')])
             stdout['rows'].append(['Max', format(market_max, '.8f')])
@@ -184,291 +190,456 @@ def submit_order(trade_type='BUY'):
             stdout['cols']
         ), "\n"
 
-        time.sleep(30)
+        return order
 
-#
-# Helper functions.
-#
-def list_of_dict_filter_by(data, key, value):
-    """
-    Returns list of dictionary items filtered by key/value.
+    @staticmethod
+    def _list_of_dict_filter_by(data, key, value):
+        """
+        Returns list of dictionary items filtered by key/value.
 
-    :param data: Data to filter.
-    :param key: Dictionary key search.
-    :param value: Dictionary key value match.
+        Args:
+            data (dict):
+                Data to filter.
+            key (str):
+                Dictionary key search.
+            value (str):
+                Dictionary key value match.
 
-    :return: list
-    """
-    return [item for i, item in enumerate(data) if data[i].get(key) == value]
+        Returns:
+            list
 
-def list_of_dict_to_csv(data, keys=None):
-    """
-    Returns list of prefiltered dictionary items as CSV string.
+        @statucfunction
+        """
+        return [
+            item for i, item in enumerate(data) if data[i].get(key) == value
+        ]
 
-    :param data: Data to convert.
-    :param keys: Columns to exclude from result.
+    @staticmethod
+    def _list_of_dict_to_csv(data, keys=None):
+        """
+        Returns list of prefiltered dictionary items as CSV string.
 
-    :return: string
-    """
-    output = StringIO.StringIO()
+        Args:
+            data (dict):
+                Data to convert.
+            keys (list):
+                Columns to exclude from result.
 
-    # Filter items by key names.
-    writer = csv.DictWriter(output, fieldnames=keys)
-    for item in data:
-        filtered_item = dict(
-            (key, value) for key, value in item.iteritems() if key in keys
+        Returns:
+            string
+        """
+        output = StringIO.StringIO()
+
+        # Filter items by key names.
+        writer = csv.DictWriter(output, fieldnames=keys)
+        for item in data:
+            filtered_item = dict(
+                (key, value) for key, value in item.iteritems() if key in keys
+            )
+            writer.writerow(filtered_item)
+
+        return output.getvalue()
+
+    @staticmethod
+    def _numpy_loadtxt(data, keys=None, converters=None):
+        """
+        Returns list of prefiltered dictionary items as ndarray.
+
+        Args:
+            data: dict
+                Data to convert.
+            keys: list
+                Columns to exclude from result.
+
+        Returns:
+            ndarray
+        """
+        return numpy.loadtxt(
+            StringIO.StringIO(
+                BittrexAutoTrader._list_of_dict_to_csv(data, keys)
+            ),
+            converters=converters,
+            delimiter=',',
+            unpack=True
         )
-        writer.writerow(filtered_item)
-
-    return output.getvalue()
-
-def numpy_loadtxt(data, keys=None, converters=None):
-    """
-    Returns list of prefiltered dictionary items as ndarray.
-
-    :param data: Data to convert.
-    :param keys: Columns to exclude from result.
-
-    :return: ndarray
-
-    """
-    return numpy.loadtxt(
-        StringIO.StringIO(
-            list_of_dict_to_csv(data, keys)
-        ),
-        converters=converters,
-        delimiter=',',
-        unpack=True
-    )
 
 #
-# Bittrex API methods.
+# Bittrex API request object.
 #
-def public_markets():
+class BittrexApiRequest(object):
     """
-    Get the open and available trading markets along with other meta data.
-
-    :return: list
+    Bittrex API request object.
     """
-    return request('public/getmarkets')
 
-def public_currencies():
-    """
-    Get all supported currencies along with other meta data.
+    def __init__(self, apikey, secret):
+        """
+        Create a new instance of the BittrexApiRequest
 
-    :return: list
-    """
-    return request('public/getcurrencies')
+        Args:
+            apikey (str):
+                Bittrex issued API key.
+            secret (str):
+                Bittrex issued API secret.
 
-def public_ticker(market):
-    """
-    Get the current tick values for a market.
+        Attributes:
+            apikey (str):
+                Bittrex issued API key.
+            secret (str):
+                Bittrex issued API secret.
+        """
+        self.apikey = apikey
+        self.secret = secret
 
-    :param market: String literal (ie. BTC-LTC).
+    def public_markets(self):
+        """
+        Get the open and available trading markets along with other meta data.
 
-    :return: list
-    """
-    return request('public/getticker', {
-        'market': market
-    })
+        Returns:
+            list
+        """
+        return self.get('public/getmarkets')
 
-def public_market_summaries():
-    """
-    Get the last 24 hour summary of all active exchanges.
+    def public_currencies(self):
+        """
+        Get all supported currencies along with other meta data.
 
-    :return: list
-    """
-    return request('public/getmarketsummaries')
+        Returns:
+            list
+        """
+        return self.get('public/getcurrencies')
 
-def public_market_summary(market):
-    """
-    Get the last 24 hour summary of all active exchanges.
+    def public_ticker(self, market):
+        """
+        Get the current tick values for a market.
 
-    :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
+        Args:
+            market (str):
+                String literal (ie. BTC-LTC).
 
-    :return: list
-    """
-    return request('public/getmarketsummary', {
-        'market': market
-    })
+        Returns:
+            list
+        """
+        return self.get('public/getticker', {
+            'market': market
+        })
 
-def public_market_history(market):
-    """
-    Get the latest trades that have occured for a specific market.
+    def public_market_summaries(self):
+        """
+        Get the last 24 hour summary of all active exchanges.
 
-    :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
+        Returns:
+            list
+        """
+        return self.get('public/getmarketsummaries')
 
-    :return: list
-    """
-    return request('public/getmarkethistory', {
-        'market': market
-    })
+    def public_market_summary(self, market):
+        """
+        Get the last 24 hour summary of all active exchanges.
 
-def public_order_book(market, book_type):
-    """
-    Get the orderbook for a given market.
+        Args:
+            market (str):
+                String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
-    :param book_type: buy, sell or both to identify the type of orderbook.
+        Returns:
+            list
+        """
+        return self.get('public/getmarketsummary', {
+            'market': market
+        })
 
-    :return: list
-    """
-    return request('public/getorderbook', {
-        'market': market,
-        'type': book_type
-    })
+    def public_market_history(self, market):
+        """
+        Get the latest trades that have occured for a specific market.
 
-def market_buy_limit(market, quantity, rate):
-    """
-    Send a buy order in a specific market.
+        Args:
+            market (str):
+                String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
-    :param quantity: The amount to purchase.
-    :param rate: Rate at which to place the order.
+        Returns:
+            list
+        """
+        return self.get('public/getmarkethistory', {
+            'market': market
+        })
 
-    :return: list
-    """
-    return request('market/buylimit', {
-        'market': market,
-        'quantity': quantity,
-        'rate': rate
-    }, signed=True)
+    def public_order_book(self, market, book_type):
+        """
+        Get the orderbook for a given market.
 
-def market_sell_limit(market, quantity, rate):
-    """
-    Send a sell order in a specific market.
+        Args:
+            market (str):
+                String literal (ie. BTC-LTC). If omitted, return all markets.
+            book_type (str):
+                Buy, sell or both to identify the type of orderbook.
 
-    :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
-    :param quantity: The amount to sell.
-    :param rate: Rate at which to place the order.
+        Returns:
+            list
+        """
+        return self.get('public/getorderbook', {
+            'market': market,
+            'type': book_type
+        })
 
-    :return: list
-    """
-    return request('market/selllimit', {
-        'market': market,
-        'quantity': quantity,
-        'rate': rate
-    }, signed=True)
+    def market_buy_limit(self, market, quantity, rate):
+        """
+        Send a buy order in a specific market.
 
-def market_cancel(uuid):
-    """
-    Send a cancel a buy or sell order.
+        Args:
+            market (str):
+                String literal (ie. BTC-LTC). If omitted, return all markets.
+            quantity (float):
+                The amount to purchase.
+            rate (float):
+                Rate at which to place the order.
 
-    :param uuid: UUID of buy or sell order.
-    """
-    return request('market/cancel', {
-        'uuid': uuid
-    }, signed=True)
+        Returns:
+            list
+        """
+        return self.get('market/buylimit', {
+            'market': market,
+            'quantity': quantity,
+            'rate': rate
+        }, signed=True)
 
-def market_open_orders(market):
-    """
-    Get all orders that you currently have opened.
+    def market_sell_limit(self, market, quantity, rate):
+        """
+        Send a sell order in a specific market.
 
-    :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
+        Args:
+            market (str):
+                String literal (ie. BTC-LTC). If omitted, return all markets.
+            quantity (float):
+                The amount to sell.
+            rate: (float)
+                Rate at which to place the order.
 
-    :return: list
-    """
-    return request('market/getopenorders', {
-        'market': market
-    }, signed=True)
+        Returns:
+            list
+        """
+        return self.get('market/selllimit', {
+            'market': market,
+            'quantity': quantity,
+            'rate': rate
+        }, signed=True)
 
-def account_balances():
-    """
-    Get all balances from your account.
+    def market_cancel(self, uuid):
+        """
+        Send a cancel a buy or sell order.
 
-    :return: list
-    """
-    return request('account/getbalances', signed=True)
+        Args:
+            uuid (str):
+                UUID of buy or sell order.
+        """
+        return self.get('market/cancel', {
+            'uuid': uuid
+        }, signed=True)
 
-def account_balance(currency):
-    """
-    Get the balance from your account for a specific currency.
+    def market_open_orders(self, market):
+        """
+        Get all orders that you currently have opened.
 
-    :param currency: String literal (ie. BTC). If omitted, return all currency.
+        Args:
+            market (str):
+                String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :return: list
-    """
-    return request('account/getbalance', {
-        'currency': currency
-    }, signed=True)
+        Returns:
+            list
+        """
+        return self.get('market/getopenorders', {
+            'market': market
+        }, signed=True)
 
-def account_deposit_address(currency):
-    """
-    Get existing, or generate new address for a specific currency.
+    def account_balances(self):
+        """
+        Get all balances from your account.
 
-    :param currency: String literal (ie. BTC). If omitted, return all currency.
+        Returns:
+            list
+        """
+        return self.get('account/getbalances', signed=True)
 
-    :return: list
-    """
-    return request('account/getdepositaddress', {
-        'currency': currency
-    }, signed=True)
+    def account_balance(self, currency):
+        """
+        Get the balance from your account for a specific currency.
 
-def account_withdraw(currency, quantity, address, paymentid):
-    """
-    Send request to withdraw funds from your account.
+        Args:
+            currency (float):
+                String literal (ie. BTC). If omitted, return all currency.
 
-    :param currency: String literal (ie. BTC). If omitted, return all currency.
-    :param quantity: The amount to withdrawl.
-    :param address: The address where to send the funds.
-    :param paymentid: CryptoNotes/BitShareX/Nxt field (memo/paymentid optional).
+        Returns:
+            list
+        """
+        return self.get('account/getbalance', {
+            'currency': currency
+        }, signed=True)
 
-    :return: list
-    """
-    return request('account/getwithdraw', {
-        'currency': currency,
-        'quantity': quantity,
-        'address': address,
-        'paymentid': paymentid
-    }, signed=True)
+    def account_deposit_address(self, currency):
+        """
+        Get existing, or generate new address for a specific currency.
 
-def account_order(uuid):
-    """
-    Get a single order by uuid.
+        Args:
+            currency (float):
+                String literal (ie. BTC). If omitted, return all currency.
 
-    :param uuid: UUID of buy or sell order.
+        Returns:
+            list
+        """
+        return self.get('account/getdepositaddress', {
+            'currency': currency
+        }, signed=True)
 
-    :return: list
-    """
-    return request('account/getorder', {
-        'uuid': uuid
-    }, signed=True)
+    def account_withdraw(self, currency, quantity, address, paymentid):
+        """
+        Send request to withdraw funds from your account.
 
-def account_order_history(market):
-    """
-    Get order history.
+        Args:
+            currency (float):
+                String literal (ie. BTC). If omitted, return all currency.
+            quantity (str):
+                The amount to withdrawl.
+            address (str):
+                The address where to send the funds.
+            paymentid (str):
+                CryptoNotes/BitShareX/Nxt field (memo/paymentid optional).
 
-    :param market: String literal (ie. BTC-LTC). If omitted, return all markets.
+        Returns:
+            list
+        """
+        return self.get('account/getwithdraw', {
+            'currency': currency,
+            'quantity': quantity,
+            'address': address,
+            'paymentid': paymentid
+        }, signed=True)
 
-    :return: list
-    """
-    return request('account/getorderhistory', {
-        'market': market
-    }, signed=True)
+    def account_order(self, uuid):
+        """
+        Get a single order by uuid.
 
-def account_deposit_history(currency):
-    """
-    Get deposit history.
+        Args:
+            uuid (str):
+                UUID of buy or sell order.
 
-    :param currency: String literal (ie. BTC). If omitted, return all currency.
+        Return:
+            list
+        """
+        return self.get('account/getorder', {
+            'uuid': uuid
+        }, signed=True)
 
-    :return: list
-    """
-    return request('account/getdeposithistory', {
-        'currency': currency
-    }, signed=True)
+    def account_order_history(self, market):
+        """
+        Get order history.
 
-def account_withdrawl_history(currency):
-    """
-    Get withdrawl history.
+        Args:
+            market (str):
+                String literal (ie. BTC-LTC). If omitted, return all markets.
 
-    :param currency: String literal (ie. BTC). If omitted, return all currency.
+        Returns:
+            list
+        """
+        return self.get('account/getorderhistory', {
+            'market': market
+        }, signed=True)
 
-    :return: list
-    """
-    return request('account/getwithdrawlhistory', {
-        'currency': currency
-    }, signed=True)
+    def account_deposit_history(self, currency):
+        """
+        Get deposit history.
+
+        Args:
+            currency (float):
+                String literal (ie. BTC). If omitted, return all currency.
+
+        Returns:
+            list
+        """
+        return self.get('account/getdeposithistory', {
+            'currency': currency
+        }, signed=True)
+
+    def account_withdrawl_history(self, currency):
+        """
+        Get withdrawl history.
+
+        Args:
+            currency (float):
+                String literal (ie. BTC). If omitted, return all currency.
+
+        Returns:
+            list
+        """
+        return self.get('account/getwithdrawlhistory', {
+            'currency': currency
+        }, signed=True)
+
+    def get(self, method, params=dict, headers=None, signed=False):
+        """
+        Construct and send a HTTP request to the Bittrex API.
+
+        Args:
+            method (str):
+                URI resource that references an API service.
+            params (dict):
+                Dictionary that contains name/value parameters (optional).
+            headers (dict):
+                Dictionary that contains HTTP header key/values (optional).
+            signed (bool):
+                Authenticate using a signed header (optional).
+
+        Returns:
+            list
+        """
+
+        # Add parameters required for signed requests.
+        if signed == True:
+            params['apikey'] = self.apikey
+            params['nonce'] = str(int(time.time()))
+
+        # Create query string from parameter items.
+        query_str = []
+        for name, value in params.iteritems():
+            query_str.append(name + '=' + value)
+
+        # Format the URL with query string.
+        uri = [BASE_URL + method]
+        uri.append('?' + '&'.join(query_str))
+        url = ''.join(uri)
+
+        # Create the signed HTTP header.
+        if headers is None:
+            headers = {}
+
+        if signed == True:
+            headers['apisign'] = BittrexApiRequest._sign(self.secret, url)
+
+        # Send the API request.
+        req = requests.get(url, headers=headers)
+        res = req.json()
+
+        if res['success'] == False:
+            print >> sys.stderr, "Bittex response: %s" % res['message']
+            sys.exit(1)
+
+        # Return list of dicts.
+        return res['result']
+
+    @staticmethod
+    def _sign(secret, message):
+        """
+        Return signed message using the HMAC algorithm.
+
+        Args:
+            secret (str):
+                Bittrex issued API secret.
+            message (str):
+                Message to convert.
+
+        Returns:
+            str
+
+        .. seealso:: https://www.bittrex.com/Manage#sectionApi
+        """
+        return hmac.new(secret, message, hashlib.sha512).hexdigest()
 
 #
 # Start program.
