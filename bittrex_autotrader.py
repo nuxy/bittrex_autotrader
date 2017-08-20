@@ -118,7 +118,7 @@ class BittrexAutoTrader(object):
 
                 # Submit a new trade.
                 active = self.submit_order(
-                    'BUY' if active and 'SELL' in active['uuid'] else 'SELL'
+                    'BUY' if active and 'SELL' in active['type'] else 'SELL'
                 )
 
             BittrexAutoTrader._wait(seconds=30)
@@ -157,15 +157,13 @@ class BittrexAutoTrader(object):
         # Calculate unit total (50k Satoshi minimum).
         unit_total = 0.0005 / float(ticker['Last'])
 
-        print unit_total
+        # Perform BUY/SELL trade operations.
+        order = {}
 
         stdout = {
             'cols': [trade_type, currency],
             'rows': []
         }
-
-        # Perform BUY/SELL trade operations.
-        order = {}
 
         if trade_type == 'BUY':
             ticker_bid = float(ticker['Bid'])
@@ -195,6 +193,8 @@ class BittrexAutoTrader(object):
             order = self.apiReq.market_sell_limit(
                 self.market, unit_total, trader_ask
             )
+
+        order['type'] = trade_type
 
         # Output results.
         print humanfriendly.tables.format_pretty_table(
