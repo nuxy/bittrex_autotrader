@@ -2,4 +2,4 @@
 apikey = XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx
 secret = XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx
 market = BTC-LTC
-spread = .001
+markup = .01
