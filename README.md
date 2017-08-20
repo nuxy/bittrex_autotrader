@@ -10,6 +10,10 @@ To install the Python script dependencies:
 
     $ make
 
+## Basic Usage
+
+    $ ./bittrex_autotrader.py --conf bittrex_autotrader.conf
+
 ## CLI options
 
 The following options can be passed to the script as arguments:
