@@ -26,6 +26,13 @@ The following options can be passed to the script as arguments:
 | --shares | BUY/SELL total units (default 1).            |
 | --markup | BUY/SELL markup percent (default 0.01).      |
 
+## Donations
+
+If this script makes you money, buy me a :beer:
+
+    Bitcoin:  1Cvr9aHNmV2riULkfgEqofQtuhxCBe7A16
+    Litecoin: LcMKbewQftytYnmsGTk63BW7yPCnUKFNni
+
 ## License and Warranty
 
 This package is distributed in the hope that it will be useful, but without any warranty; without even the implied warranty of merchantability or fitness for a particular purpose.
