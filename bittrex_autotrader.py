@@ -97,33 +97,34 @@ class BittrexAutoTrader(object):
         self.apiReq = BittrexApiRequest(apikey, secret)
         self.market = market
         self.spread = spread
+        self._units = 2000  # TODO: 50k Satoshi minimum.
         self.init()
 
     def init(self):
         """
-        Initialize trading routines.
+        Initialize automatic trading (BUY/SELL <> LOW/HIGH).
         """
         active = {}
 
+        # Check for active trades.
         while True:
-
-            # Check for active trades.
             open_orders = self.apiReq.market_open_orders(self.market)
 
-            # If no pending orders exist, submit a new trade.
+            # If no open orders exist..
             if open_orders:
                 for order in open_orders:
-                    if order['OrderUuid'] == active['OrderUuid']:
+                    if order['OrderUuid'] == active['uuid']:
                         break
-                continue
+            else:
 
-            active = self.submit_order(
-                'SELL' if active and 'BUY' in active['OrderType'] else 'BUY'
-            )
+                # Submit a new trade.
+                active = self.submit_order(
+                    'BUY' if active and 'SELL' in active['uuid'] else 'SELL'
+                )
 
-            time.sleep(30)
+            BittrexAutoTrader._wait(seconds=30)
 
-    def submit_order(self, trade_type='BUY'):
+    def submit_order(self, trade_type='SELL'):
         """
         Submit an order to Bittrex market; wait until fulfilled.
 
@@ -162,7 +163,21 @@ class BittrexAutoTrader(object):
         # Perform trade operations.
         order = {}
 
-        if trade_type == 'SELL':
+        if trade_type == 'BUY':
+            ticker_bid = float(ticker['Bid'])
+            trader_bid = round(
+                ticker_bid - (ticker_bid * float(self.spread)), 8
+            )
+
+            stdout['rows'].append(['Avg', format(market_avg, '.8f')])
+            stdout['rows'].append(['Max', format(market_max, '.8f')])
+            stdout['rows'].append(['Ask', format(ticker_bid, '.8f')])
+            stdout['rows'].append(['Bid', format(trader_bid, '.8f')])
+
+            order = self.apiReq.market_buy_limit(
+                self.market, self._units, trader_bid
+            )
+        else:
             ticker_ask = float(ticker['Ask'])
             trader_ask = round(
                 ticker_ask + (ticker_ask * float(self.spread)), 8
@@ -173,16 +188,9 @@ class BittrexAutoTrader(object):
             stdout['rows'].append(['Bid', format(ticker_ask, '.8f')])
             stdout['rows'].append(['Ask', format(trader_ask, '.8f')])
 
-        else:
-            ticker_bid = float(ticker['Bid'])
-            trader_bid = round(
-                ticker_bid - (ticker_bid * float(self.spread)), 8
+            order = self.apiReq.market_sell_limit(
+                self.market, self._units, trader_ask
             )
-
-            stdout['rows'].append(['Avg', format(market_avg, '.8f')])
-            stdout['rows'].append(['Max', format(market_max, '.8f')])
-            stdout['rows'].append(['Ask', format(ticker_bid, '.8f')])
-            stdout['rows'].append(['Bid', format(trader_bid, '.8f')])
 
         # Output results.
         print humanfriendly.tables.format_pretty_table(
@@ -262,6 +270,22 @@ class BittrexAutoTrader(object):
             delimiter=',',
             unpack=True
         )
+
+    @staticmethod
+    def _wait(label='Waiting', seconds=10, timer=False):
+        """
+        Suspend execution for given number of seconds while showing a spinner.
+
+        Args:
+            label (str):
+                The label for the spinner.
+            seconds (int):
+                Seconds to delay execution.
+            timer (bool):
+                Show the elapsed time.
+        """
+        with humanfriendly.AutomaticSpinner(label, show_time=timer) as spinner:
+            time.sleep(seconds)
 
 #
 # Bittrex API request object.
@@ -598,7 +622,7 @@ class BittrexApiRequest(object):
         # Create query string from parameter items.
         query_str = []
         for name, value in params.iteritems():
-            query_str.append(name + '=' + value)
+            query_str.append(name + '=' + str(value))
 
         # Format the URL with query string.
         uri = [BASE_URL + method]
