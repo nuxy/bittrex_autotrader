@@ -97,7 +97,6 @@ class BittrexAutoTrader(object):
         self.apiReq = BittrexApiRequest(apikey, secret)
         self.market = market
         self.spread = spread
-        self._units = 2000  # TODO: 50k Satoshi minimum.
         self.init()
 
     def init(self):
@@ -155,12 +154,17 @@ class BittrexAutoTrader(object):
         # Get ASK/BID orders.
         ticker = self.apiReq.public_ticker(self.market)
 
+        # Calculate unit total (50k Satoshi minimum).
+        unit_total = 0.0005 / float(ticker['Last'])
+
+        print unit_total
+
         stdout = {
             'cols': [trade_type, currency],
             'rows': []
         }
 
-        # Perform trade operations.
+        # Perform BUY/SELL trade operations.
         order = {}
 
         if trade_type == 'BUY':
@@ -175,7 +179,7 @@ class BittrexAutoTrader(object):
             stdout['rows'].append(['Bid', format(trader_bid, '.8f')])
 
             order = self.apiReq.market_buy_limit(
-                self.market, self._units, trader_bid
+                self.market, unit_total, trader_bid
             )
         else:
             ticker_ask = float(ticker['Ask'])
@@ -189,7 +193,7 @@ class BittrexAutoTrader(object):
             stdout['rows'].append(['Ask', format(trader_ask, '.8f')])
 
             order = self.apiReq.market_sell_limit(
-                self.market, self._units, trader_ask
+                self.market, unit_total, trader_ask
             )
 
         # Output results.
