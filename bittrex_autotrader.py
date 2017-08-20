@@ -43,9 +43,9 @@ def main():
 
     args, remaining_args = arg_parser.parse_known_args()
 
-    if args.config:
+    if args.conf:
         config_parser = ConfigParser.SafeConfigParser()
-        config_parser.read([args.config])
+        config_parser.read([args.conf])
 
         config = dict(config_parser.items('config'))
     else:
