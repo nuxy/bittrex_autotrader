@@ -52,6 +52,7 @@ def main():
         arg_parser.add_argument('--apikey', required=True)
         arg_parser.add_argument('--secret', required=True)
         arg_parser.add_argument('--market', required=True)
+        arg_parser.add_argument('--shares')
         arg_parser.add_argument('--markup')
 
         config = vars(arg_parser.parse_args(remaining_args))
@@ -61,6 +62,7 @@ def main():
         config['apikey'],
         config['secret'],
         config['market'],
+        config['shares'],
         config['markup']
     )
 
@@ -72,7 +74,7 @@ class BittrexAutoTrader(object):
     Bittrex API autotrader object.
     """
 
-    def __init__(self, apikey, secret, market, markup):
+    def __init__(self, apikey, secret, market, shares=1, markup=0.01):
         """
         Create a new instance of BittrexAutoTrader
 
@@ -83,19 +85,24 @@ class BittrexAutoTrader(object):
                 Bittrex issued API secret.
             market (str):
                 String literal for the market (ie. BTC-LTC).
+            shares (float):
+                BUY/SELL total units (default 1).
             markup (float):
-                BUY/SELL markup percent.
+                BUY/SELL markup percent (default 0.01).
 
         Attributes:
             apiReq (BittrexApiRequest):
                 Instance of BittrexApiRequest object.
             market (str):
                 String literal for the market (ie. BTC-LTC).
+            shares (float):
+                BUY/SELL total units (default 1).
             markup (float):
-                BUY/SELL markup percent.
+                BUY/SELL markup percent (default 0.01).
         """
         self.apiReq = BittrexApiRequest(apikey, secret)
         self.market = market
+        self.shares = shares
         self.markup = markup
         self.init()
 
@@ -154,8 +161,11 @@ class BittrexAutoTrader(object):
         # Get ASK/BID orders.
         ticker = self.apiReq.public_ticker(self.market)
 
-        # Calculate unit total (50k Satoshi minimum).
-        unit_total = 0.0005 / float(ticker['Last'])
+        # Calculate units (50k Satoshi min requirement).
+        total_units = 0.0005 / float(ticker['Last'])
+
+        if total_units < self.shares:
+           total_units = self.shares
 
         # Perform BUY/SELL trade operations.
         order = {}
@@ -177,7 +187,7 @@ class BittrexAutoTrader(object):
             stdout['rows'].append(['Bid', format(trader_bid, '.8f')])
 
             order = self.apiReq.market_buy_limit(
-                self.market, unit_total, trader_bid
+                self.market, total_units, trader_bid
             )
         else:
             ticker_ask = float(ticker['Ask'])
@@ -191,7 +201,7 @@ class BittrexAutoTrader(object):
             stdout['rows'].append(['Ask', format(trader_ask, '.8f')])
 
             order = self.apiReq.market_sell_limit(
-                self.market, unit_total, trader_ask
+                self.market, total_units, trader_ask
             )
 
         order['type'] = trade_type
