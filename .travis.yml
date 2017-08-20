@@ -8,8 +8,6 @@ python:
   - "3.5"
   - "3.6"
 install:
-  - pip install humanfriendly
-  - pip install numpy
-  - pip install requests
+  - pip install -r requirements.txt
 script:
   - python bittrex_autotrade.py -k KEY -s SECRET
