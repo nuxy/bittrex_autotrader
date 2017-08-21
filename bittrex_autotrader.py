@@ -99,36 +99,41 @@ class BittrexAutoTrader(object):
                 BUY/SELL total units (default 1).
             markup (float):
                 BUY/SELL markup percent (default 0.01).
+            orders (list):
+                List of prior orders as dictionary items.
+            active (int):
+                Incremented value in orders (default 0).
         """
         self.apiReq = BittrexApiRequest(apikey, secret)
         self.market = market
         self.shares = shares
         self.markup = markup
+        self.orders = []
+        self.active = 0
         self.init()
 
     def init(self):
         """
         Initialize automatic trading (BUY/SELL <> LOW/HIGH).
         """
-        active = {}
+        last_trade = None
 
-        # Check for active trades.
         while True:
-            open_orders = self.apiReq.market_open_orders(self.market)
+            if self.orders:
 
-            # If no open orders exist..
-            if open_orders:
-                for order in open_orders:
-                    if order['OrderUuid'] == active['uuid']:
-                        break
-            else:
-
-                # Submit a new trade.
-                active = self.submit_order(
-                    'BUY' if active and 'SELL' in active['type'] else 'SELL'
+                # Check for open orders.
+                order = self.apiReq.account_order(
+                    self.orders[self.active - 1]['OrderUuid']
                 )
 
-            BittrexAutoTrader._wait(seconds=30)
+                if order['IsOpen'] == True:
+                    BittrexAutoTrader._wait(seconds=30)
+                    continue
+
+            # Submit a new order.
+            last_trade = 'BUY' if last_trade == 'SELL' else 'SELL'
+
+            self.submit_order(last_trade)
 
     def submit_order(self, trade_type='SELL'):
         """
@@ -137,9 +142,6 @@ class BittrexAutoTrader(object):
         Args:
             trade_type (str):
                 BUY or SELL (default BUY).
-
-        Returns:
-            dict
         """
         currency = self.market.replace('BTC-', '')
 
@@ -168,12 +170,12 @@ class BittrexAutoTrader(object):
            total_units = self.shares
 
         # Perform BUY/SELL trade operations.
-        order = {}
-
         stdout = {
             'cols': [trade_type, currency],
             'rows': []
         }
+
+        uuid = None;
 
         if trade_type == 'BUY':
             ticker_bid = float(ticker['Bid'])
@@ -186,9 +188,9 @@ class BittrexAutoTrader(object):
             stdout['rows'].append(['Ask', format(ticker_bid, '.8f')])
             stdout['rows'].append(['Bid', format(trader_bid, '.8f')])
 
-            order = self.apiReq.market_buy_limit(
+            uuid = (self.apiReq.market_buy_limit(
                 self.market, total_units, trader_bid
-            )
+            ))['uuid']
         else:
             ticker_ask = float(ticker['Ask'])
             trader_ask = round(
@@ -200,19 +202,19 @@ class BittrexAutoTrader(object):
             stdout['rows'].append(['Bid', format(ticker_ask, '.8f')])
             stdout['rows'].append(['Ask', format(trader_ask, '.8f')])
 
-            order = self.apiReq.market_sell_limit(
+            uuid = (self.apiReq.market_sell_limit(
                 self.market, total_units, trader_ask
-            )
+            ))['uuid']
 
-        order['type'] = trade_type
+        # Store the order data.
+        self.orders.append(self.apiReq.account_order(uuid))
+        self.active += 1
 
         # Output results.
         print humanfriendly.tables.format_pretty_table(
             stdout['rows'],
             stdout['cols']
         ), "\n"
-
-        return order
 
     @staticmethod
     def _list_of_dict_filter_by(data, key, value):
