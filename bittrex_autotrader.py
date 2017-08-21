@@ -58,13 +58,7 @@ def main():
         config = vars(arg_parser.parse_args(remaining_args))
 
     # Let's get this party started.
-    BittrexAutoTrader(
-        config['apikey'],
-        config['secret'],
-        config['market'],
-        config['shares'],
-        config['markup']
-    )
+    BittrexAutoTrader(config)
 
 #
 # Bittrex API autotrader object.
@@ -74,21 +68,13 @@ class BittrexAutoTrader(object):
     Bittrex API autotrader object.
     """
 
-    def __init__(self, apikey, secret, market, shares=1, markup=0.01):
+    def __init__(self, settings):
         """
         Create a new instance of BittrexAutoTrader
 
         Args:
-            apikey (str):
-                Bittrex issued API key.
-            secret (str):
-                Bittrex issued API secret.
-            market (str):
-                String literal for the market (ie. BTC-LTC).
-            shares (float):
-                BUY/SELL total units (default 1).
-            markup (float):
-                BUY/SELL markup percent (default 0.01).
+            settings (dict):
+                Dictionary of object settings.
 
         Attributes:
             apiReq (BittrexApiRequest):
@@ -96,18 +82,18 @@ class BittrexAutoTrader(object):
             market (str):
                 String literal for the market (ie. BTC-LTC).
             shares (float):
-                BUY/SELL total units (default 1).
+                BUY/SELL total units.
             markup (float):
-                BUY/SELL markup percent (default 0.01).
+                BUY/SELL markup percent.
             orders (list):
-                List of prior orders as dictionary items.
+                List of orders as dictionary items.
             active (int):
-                Incremented value in orders (default 0).
+                Incremented value for orders.
         """
-        self.apiReq = BittrexApiRequest(apikey, secret)
-        self.market = market
-        self.shares = shares
-        self.markup = markup
+        self.apiReq = BittrexApiRequest(settings['apikey'], settings['secret'])
+        self.market = settings['market']
+        self.shares = settings['shares']
+        self.markup = settings['markup']
         self.orders = []
         self.active = 0
         self.init()
@@ -126,7 +112,7 @@ class BittrexAutoTrader(object):
                     self.orders[self.active - 1]['OrderUuid']
                 )
 
-                if order['IsOpen'] == True:
+                if order['IsOpen']:
                     BittrexAutoTrader._wait(seconds=30)
                     continue
 
@@ -157,9 +143,6 @@ class BittrexAutoTrader(object):
         market_avg = round(price_history.mean(), 8)
         market_max = round(price_history.max(), 8)
 
-        # Get account balance.
-        available = (self.apiReq.account_balance(currency))['Available']
-
         # Get ASK/BID orders.
         ticker = self.apiReq.public_ticker(self.market)
 
@@ -167,7 +150,7 @@ class BittrexAutoTrader(object):
         total_units = 0.0005 / float(ticker['Last'])
 
         if total_units < self.shares:
-           total_units = self.shares
+            total_units = self.shares
 
         # Perform BUY/SELL trade operations.
         stdout = {
@@ -175,7 +158,7 @@ class BittrexAutoTrader(object):
             'rows': []
         }
 
-        uuid = None;
+        uuid = None
 
         if trade_type == 'BUY':
             ticker_bid = float(ticker['Bid'])
