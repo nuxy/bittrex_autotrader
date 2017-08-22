@@ -105,9 +105,9 @@ class BittrexAutoTrader(object):
         last_trade = None
 
         while True:
-            if self.orders:
 
-                # Check for open orders.
+            # Check for open orders.
+            if self.orders:
                 order = self.apiReq.account_order(
                     self.orders[self.active - 1]['OrderUuid']
                 )
@@ -123,13 +123,12 @@ class BittrexAutoTrader(object):
 
     def submit_order(self, trade_type='SELL'):
         """
-        Submit an order to Bittrex market; wait until fulfilled.
+        Submit an order to the Bittrex API.
 
         Args:
             trade_type (str):
                 BUY or SELL (default BUY).
         """
-        currency = self.market.replace('BTC-', '')
 
         # Get BUY/SELL order market totals.
         market_history = self.apiReq.public_market_history(self.market)
@@ -143,23 +142,23 @@ class BittrexAutoTrader(object):
         market_avg = round(price_history.mean(), 8)
         market_max = round(price_history.max(), 8)
 
-        # Get ASK/BID orders.
+        # Get current ASK/BID orders.
         ticker = self.apiReq.public_ticker(self.market)
 
         # Calculate units (50k Satoshi min requirement).
         total_units = 0.0005 / float(ticker['Last'])
-
         if total_units < self.shares:
             total_units = self.shares
 
-        # Perform BUY/SELL trade operations.
+        # Format human-friendly results.
+        currency = self.market.replace('BTC-', '')
+
         stdout = {
             'cols': [trade_type, currency],
             'rows': []
         }
 
-        uuid = None
-
+        # Perform trade operation.
         if trade_type == 'BUY':
             ticker_bid = float(ticker['Bid'])
             trader_bid = round(
@@ -189,11 +188,11 @@ class BittrexAutoTrader(object):
                 self.market, total_units, trader_ask
             ))['uuid']
 
-        # Store the order data.
+        # Store and index the order data.
         self.orders.append(self.apiReq.account_order(uuid))
         self.active += 1
 
-        # Output results.
+        # Output human-friendly results.
         print humanfriendly.tables.format_pretty_table(
             stdout['rows'],
             stdout['cols']
@@ -246,6 +245,22 @@ class BittrexAutoTrader(object):
             writer.writerow(filtered_item)
 
         return output.getvalue()
+
+    @staticmethod
+    def _numpy_calc_sma(a, n):
+        """
+        Return simple moving average for a given data sequence.
+
+        Args:
+            a (list):
+                One-dimensional input array.
+            n (int):
+                Number of days (n-day).
+
+        Returns:
+            list
+        """
+        return numpy.convolve(a, numpy.ones((n,)) / n, mode='valid')
 
     @staticmethod
     def _numpy_loadtxt(data, keys=None, converters=None):
