@@ -2,7 +2,7 @@
 
 Bittrex currency exchange autotrading script in a nutshell.
 
-This is **currently in development**. You have been warned :skull:
+:skull: This is **currently in development**. You have been warned :skull:
 
 ## Dependencies
 
@@ -28,7 +28,7 @@ The following options can be passed to the script as arguments:
 
 ## Donations
 
-If this script makes you money, buy me a :beer: or two.
+If this script makes you money, buy me :beer:
 
     Bitcoin:  1Cvr9aHNmV2riULkfgEqofQtuhxCBe7A16
     Litecoin: LcMKbewQftytYnmsGTk63BW7yPCnUKFNni
