@@ -2,7 +2,7 @@
 
 Bittrex currency exchange autotrading script in a nutshell.
 
-This is **currently in development**. You have been warned.
+This is **currently in development**. You have been warned :skull:
 
 ## Dependencies
 
@@ -18,17 +18,17 @@ To install the Python script dependencies:
 
 The following options can be passed to the script as arguments:
 
-| Option   | Description                                  |
-| ---------| -------------------------------------------- |
-| --apikey | Bittrex issued API key.                      |
-| --secret | Bittrex issued API secret.                   |
-| --market | String literal for the market (ie. BTC-LTC). |
-| --shares | BUY/SELL total units (default 1).            |
-| --markup | BUY/SELL markup percent (default 0.01).      |
+| Option   | Description                            | Example                          |
+| ---------| ---------------------------------------|----------------------------------|
+| --apikey | Bittrex issued API key.                | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |
+| --secret | Bittrex issued API secret.             | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |
+| --market | String literal for the market.         | BTC-LTC                          |
+| --shares | BUY/SELL total units.                  | 1                                |
+| --spread | BUY/SELL [markup/markdown] percentage. | 0.1/0.1                          |
 
 ## Donations
 
-If this script makes you money, buy me a :beer:
+If this script makes you money, buy me a :beer: or two.
 
     Bitcoin:  1Cvr9aHNmV2riULkfgEqofQtuhxCBe7A16
     Litecoin: LcMKbewQftytYnmsGTk63BW7yPCnUKFNni

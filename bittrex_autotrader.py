@@ -53,7 +53,7 @@ def main():
         arg_parser.add_argument('--secret', required=True)
         arg_parser.add_argument('--market', required=True)
         arg_parser.add_argument('--shares')
-        arg_parser.add_argument('--markup')
+        arg_parser.add_argument('--spread')
 
         config = vars(arg_parser.parse_args(remaining_args))
 
@@ -83,8 +83,8 @@ class BittrexAutoTrader(object):
                 String literal for the market (ie. BTC-LTC).
             shares (float):
                 BUY/SELL total units.
-            markup (float):
-                BUY/SELL markup percent.
+            spread (array):
+                BUY/SELL [markup/markdown] percentage.
             orders (list):
                 List of orders as dictionary items.
             active (int):
@@ -93,7 +93,7 @@ class BittrexAutoTrader(object):
         self.apiReq = BittrexApiRequest(settings['apikey'], settings['secret'])
         self.market = settings['market']
         self.shares = settings['shares']
-        self.markup = settings['markup']
+        self.spread = settings['spread'].split('/') # ['markup', 'markdown']
         self.orders = []
         self.active = 0
         self.init()
@@ -162,7 +162,7 @@ class BittrexAutoTrader(object):
         if trade_type == 'BUY':
             ticker_bid = float(ticker['Bid'])
             trader_bid = round(
-                ticker_bid - (ticker_bid * float(self.markup)), 8
+                (ticker_bid - (ticker_bid * float(self.spread[1]))), 8
             )
 
             stdout['rows'].append(['Avg', format(market_avg, '.8f')])
@@ -176,7 +176,7 @@ class BittrexAutoTrader(object):
         else:
             ticker_ask = float(ticker['Ask'])
             trader_ask = round(
-                ticker_ask + (ticker_ask * float(self.markup)), 8
+                (ticker_ask + (ticker_ask * float(self.spread[0]))), 8
             )
 
             stdout['rows'].append(['Avg', format(market_avg, '.8f')])
