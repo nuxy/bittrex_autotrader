@@ -49,7 +49,7 @@ def main():
     arg_parser.add_argument('--apikey', required='--conf' not in argv)
     arg_parser.add_argument('--secret', required='--conf' not in argv)
     arg_parser.add_argument('--market', required='--conf' not in argv)
-    arg_parser.add_argument('--shares', required='--conf' not in argv)
+    arg_parser.add_argument('--units',  required='--conf' not in argv)
     arg_parser.add_argument('--spread', required='--conf' not in argv)
 
     args, remaining_args = arg_parser.parse_known_args()
@@ -86,7 +86,7 @@ class BittrexAutoTrader(object):
                 Instance of BittrexApiRequest object.
             market (str):
                 String literal for the market (ie. BTC-LTC).
-            shares (float):
+            units (float):
                 BUY/SELL total units.
             spread (array):
                 BUY/SELL [markup/markdown] percentage.
@@ -97,7 +97,7 @@ class BittrexAutoTrader(object):
         """
         self.apiReq = BittrexApiRequest(settings['apikey'], settings['secret'])
         self.market = settings['market']
-        self.shares = settings['shares']
+        self.units  = settings['units']
         self.spread = settings['spread'].split('/') # ['markup', 'markdown']
         self.orders = []
         self.active = 0
@@ -152,8 +152,8 @@ class BittrexAutoTrader(object):
 
         # Calculate units (50k Satoshi min requirement).
         total_units = 0.0005 / float(ticker['Last'])
-        if total_units < self.shares:
-            total_units = self.shares
+        if total_units < self.units:
+            total_units = self.units
 
         # Format human-friendly results.
         currency = self.market.replace('BTC-', '')

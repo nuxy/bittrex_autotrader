@@ -23,7 +23,7 @@ The following options can be passed to the script as arguments:
 | --apikey | Bittrex issued API key.                | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |
 | --secret | Bittrex issued API secret.             | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |
 | --market | String literal for the market.         | BTC-LTC                          |
-| --shares | BUY/SELL total units.                  | 1                                |
+| --units  | BUY/SELL total units.                  | 1                                |
 | --spread | BUY/SELL [markup/markdown] percentage. | 0.1/0.1                          |
 
 ## Donations
