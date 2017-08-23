@@ -36,10 +36,21 @@ BASE_URL = 'https://bittrex.com/api/v1.1/'
 
 def main():
     """
-    Process command-line arguments and start trading.
+    Process command-line arguments and init autotrader.
+
+    .. seealso:: bittrex_autotrader.conf.example
     """
+    argv = sys.argv
+
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('--conf', metavar='FILE')
+
+    # Options can be passed to the script as arguments.
+    arg_parser.add_argument('--apikey', required='--conf' not in argv)
+    arg_parser.add_argument('--secret', required='--conf' not in argv)
+    arg_parser.add_argument('--market', required='--conf' not in argv)
+    arg_parser.add_argument('--shares', required='--conf' not in argv)
+    arg_parser.add_argument('--spread', required='--conf' not in argv)
 
     args, remaining_args = arg_parser.parse_known_args()
 
@@ -49,12 +60,6 @@ def main():
 
         config = dict(config_parser.items('config'))
     else:
-        arg_parser.add_argument('--apikey', required=True)
-        arg_parser.add_argument('--secret', required=True)
-        arg_parser.add_argument('--market', required=True)
-        arg_parser.add_argument('--shares')
-        arg_parser.add_argument('--spread')
-
         config = vars(arg_parser.parse_args(remaining_args))
 
     # Let's get this party started.
