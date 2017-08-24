@@ -32,8 +32,6 @@ import StringIO
 import sys
 import time
 
-BASE_URL = 'https://bittrex.com/api/v1.1/'
-
 def main():
     """
     Process command-line arguments and init autotrader.
@@ -313,6 +311,7 @@ class BittrexApiRequest(object):
     """
     Bittrex API request object.
     """
+    BASE_URL = 'https://bittrex.com/api/v1.1/'
 
     def __init__(self, apikey, secret):
         """
@@ -644,7 +643,7 @@ class BittrexApiRequest(object):
             query_str.append(name + '=' + str(value))
 
         # Format the URL with query string.
-        uri = [BASE_URL + method]
+        uri = [BittrexApiRequest.BASE_URL + method]
         uri.append('?' + '&'.join(query_str))
         url = ''.join(uri)
 
