@@ -1,6 +1,6 @@
 # bittrex_autotrader
 
-Bittrex currency exchange autotrading script in a nutshell.
+Bittrex currency exchange autotrading script _in a nutshell_.
 
 :skull: This is **currently in development**. You have been warned :skull:
 
@@ -14,17 +14,17 @@ To install the Python script dependencies:
 
     $ ./bittrex_autotrader.py --conf bittrex_autotrader.conf
 
-## CLI options
+## Configuration options
 
-The following options can be passed to the script as arguments:
+The following options can be passed as script arguments or defined in a file:
 
-| Option   | Description                            | Example                          |
-| ---------| ---------------------------------------|----------------------------------|
-| --apikey | Bittrex issued API key.                | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |
-| --secret | Bittrex issued API secret.             | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |
-| --market | String literal for the market.         | BTC-LTC                          |
-| --units  | BUY/SELL total units.                  | 1                                |
-| --spread | BUY/SELL [markup/markdown] percentage. | 0.1/0.1                          |
+| Option | Description                          | Format                           | Default value |
+| -------| -------------------------------------|----------------------------------|---------------|
+| apikey | Bittrex issued API key.              | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
+| secret | Bittrex issued API secret.           | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
+| market | String literal for the market.       | BTC-LTC                          | BTC-LTC       |
+| units  | BUY/SELL total units.                | 1                                | 1             |
+| spread | BUY/SELL markup/markdown percentage. | 0.0/0.0                          | 0.1/0.1       |
 
 ## Donations
 

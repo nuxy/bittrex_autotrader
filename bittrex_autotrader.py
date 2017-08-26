@@ -299,26 +299,57 @@ class BittrexAutoTraderConfig(object):
         argv = sys.argv
 
         arg_parser = argparse.ArgumentParser()
-        arg_parser.add_argument('--conf', metavar='FILE')
 
-        # Configuration options can be passed as arguments.
-        arg_parser.add_argument('--apikey', required='--conf' not in argv)
-        arg_parser.add_argument('--secret', required='--conf' not in argv)
-        arg_parser.add_argument('--market', required='--conf' not in argv)
-        arg_parser.add_argument('--units',  required='--conf' not in argv)
-        arg_parser.add_argument('--spread', required='--conf' not in argv)
+        # Configuration options can be passed as script arguments.
+        arg_parser.add_argument(
+            '--conf',
+            help='Configuration file (bittrex_autotrader.conf)',
+            metavar='FILE'
+        )
+
+        arg_parser.add_argument(
+            '--apikey',
+            help='Bittrex issued API key.',
+            required='--conf' not in argv
+        )
+
+        arg_parser.add_argument(
+            '--secret',
+            help='Bittrex issued API secret.',
+            required='--conf' not in argv
+        )
+
+        arg_parser.add_argument(
+            '--market',
+            help='String literal for the market (ie. BTC-LTC)',
+            default='BTC-LTC'
+        )
+
+        arg_parser.add_argument(
+            '--units',
+            help='BUY/SELL total units (default 1.0)',
+            default='1.0'
+        )
+
+        arg_parser.add_argument(
+            '--spread',
+            help='BUY/SELL [markup/markdown] percentage (default 0.1/0.1)',
+            default='0.1/0.1'
+        )
 
         args, remaining_args = arg_parser.parse_known_args()
 
+        # Return configuration values from file.
         if args.conf:
             config_parser = ConfigParser.SafeConfigParser()
             config_parser.read([args.conf])
 
-            vals = dict(config_parser.items('config'))
-        else:
-            vals = vars(args)
+            return dict(config_parser.items('config'))
 
-        return vals
+        # Return command-line argument values.
+        else:
+            return vars(args)
+
 #
 # Bittrex API request object.
 #
