@@ -60,7 +60,9 @@ class BittrexAutoTrader(object):
             units (float):
                 BUY/SELL total units.
             spread (array):
-                BUY/SELL [markup/markdown] percentage.
+                BUY/SELL markup/markdown percentage.
+            method (str):
+                Moving Average calculation method.
             orders (list):
                 List of orders as dictionary items.
             active (int):
@@ -70,12 +72,12 @@ class BittrexAutoTrader(object):
         self.market = options['market']
         self.units  = options['units']
         self.spread = options['spread'].split('/')
+        self.method = options['method']
         self.orders = []
         self.active = 0
         self.init()
 
     def init(self):
-
         """
         Initialize automatic trading (BUY/SELL <> LOW/HIGH).
         """
@@ -104,7 +106,7 @@ class BittrexAutoTrader(object):
 
         Args:
             trade_type (str):
-                BUY or SELL (default BUY).
+                BUY or SELL (default: BUY).
         """
 
         # Get BUY/SELL order market totals.
@@ -116,8 +118,13 @@ class BittrexAutoTrader(object):
             ),
             ['Price']
         )
-        market_avg = round(price_history.mean(), 8)
         market_max = round(price_history.max(), 8)
+
+        # Calculate Moving Average (TODO: weights).
+        if self.method == 'weighted':
+            moving_avg = round(price_history.average(weights=None), 8)
+        else:
+            moving_avg = round(price_history.mean(), 8)
 
         # Get current ASK/BID orders.
         ticker = self.apiReq.public_ticker(self.market)
@@ -142,7 +149,7 @@ class BittrexAutoTrader(object):
                 (ticker_bid - (ticker_bid * float(self.spread[1]))), 8
             )
 
-            stdout['rows'].append(['Avg', format(market_avg, '.8f')])
+            stdout['rows'].append(['Avg', format(moving_avg, '.8f')])
             stdout['rows'].append(['Max', format(market_max, '.8f')])
             stdout['rows'].append(['Ask', format(ticker_bid, '.8f')])
             stdout['rows'].append(['Bid', format(trader_bid, '.8f')])
@@ -156,7 +163,7 @@ class BittrexAutoTrader(object):
                 (ticker_ask + (ticker_ask * float(self.spread[0]))), 8
             )
 
-            stdout['rows'].append(['Avg', format(market_avg, '.8f')])
+            stdout['rows'].append(['Avg', format(moving_avg, '.8f')])
             stdout['rows'].append(['Max', format(market_max, '.8f')])
             stdout['rows'].append(['Bid', format(ticker_ask, '.8f')])
             stdout['rows'].append(['Ask', format(trader_ask, '.8f')])
@@ -226,7 +233,7 @@ class BittrexAutoTrader(object):
     @staticmethod
     def _numpy_calc_sma(a, n):
         """
-        Return simple moving average for a given data sequence.
+        Return Simple Moving Average for a given data sequence.
 
         Args:
             a (list):
@@ -327,14 +334,20 @@ class BittrexAutoTraderConfig(object):
 
         arg_parser.add_argument(
             '--units',
-            help='BUY/SELL total units (default 1.0)',
+            help='BUY/SELL total units (default: 1.0)',
             default='1.0'
         )
 
         arg_parser.add_argument(
             '--spread',
-            help='BUY/SELL [markup/markdown] percentage (default 0.1/0.1)',
+            help='BUY/SELL markup/markdown percentage (default: 0.1/0.1)',
             default='0.1/0.1'
+        )
+
+        arg_parser.add_argument(
+            '--method',
+            help='Moving Average calculation method (default: arithmetic)',
+            default='arithmetic'
         )
 
         args, remaining_args = arg_parser.parse_known_args()

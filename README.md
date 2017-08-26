@@ -22,9 +22,10 @@ The following options can be passed as script arguments or defined in a file:
 | -------| -------------------------------------|----------------------------------|---------------|
 | apikey | Bittrex issued API key.              | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
 | secret | Bittrex issued API secret.           | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
-| market | String literal for the market.       | BTC-LTC                          | BTC-LTC       |
+| market | String literal for the market.       | BTC-XXX                          | BTC-LTC       |
 | units  | BUY/SELL total units.                | 1                                | 1             |
 | spread | BUY/SELL markup/markdown percentage. | 0.0/0.0                          | 0.1/0.1       |
+| method | Moving Average calculation method.   |                                  | arithmetic    |
 
 ## Donations
 

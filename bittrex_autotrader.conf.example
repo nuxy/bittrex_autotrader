@@ -4,3 +4,4 @@ secret = XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx
 market = BTC-LTC
 units  = 1
 spread = 0.1/0.1
+method = arithmetic
