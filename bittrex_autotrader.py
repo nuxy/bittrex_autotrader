@@ -79,9 +79,16 @@ class BittrexAutoTrader(object):
 
     def init(self):
         """
-        Initialize automatic trading (BUY/SELL <> LOW/HIGH).
+        Initialize automatic trading.
         """
-        last_trade = None
+
+        # Prompt for first transaction type (trade BUY/SELL).
+        choice = humanfriendly.prompt_for_choice(
+            ['BUY in (need units to trade)', 'SELL out (need liquidity)'],
+            default='SELL'
+        )
+
+        next_trade = choice.split(' ', 1)[0]
 
         while True:
 
@@ -96,11 +103,11 @@ class BittrexAutoTrader(object):
                     continue
 
             # Submit a new order.
-            last_trade = 'BUY' if last_trade == 'SELL' else 'SELL'
+            self.submit_order(next_trade)
 
-            self.submit_order(last_trade)
+            next_trade = 'BUY' if next_trade == 'SELL' else 'SELL'
 
-    def submit_order(self, trade_type='SELL'):
+    def submit_order(self, trade_type='BUY'):
         """
         Submit an order to the Bittrex API.
 
