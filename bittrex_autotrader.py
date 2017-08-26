@@ -32,43 +32,16 @@ import StringIO
 import sys
 import time
 
-def main():
-    """
-    Process command-line arguments and init autotrader.
-
-    .. seealso:: bittrex_autotrader.conf.example
-    """
-    argv = sys.argv
-
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--conf', metavar='FILE')
-
-    # Options can be passed to the script as arguments.
-    arg_parser.add_argument('--apikey', required='--conf' not in argv)
-    arg_parser.add_argument('--secret', required='--conf' not in argv)
-    arg_parser.add_argument('--market', required='--conf' not in argv)
-    arg_parser.add_argument('--units',  required='--conf' not in argv)
-    arg_parser.add_argument('--spread', required='--conf' not in argv)
-
-    args, remaining_args = arg_parser.parse_known_args()
-
-    if args.conf:
-        config_parser = ConfigParser.SafeConfigParser()
-        config_parser.read([args.conf])
-
-        config = dict(config_parser.items('config'))
-    else:
-        config = vars(arg_parser.parse_args(remaining_args))
-
-    # Let's get this party started.
-    BittrexAutoTrader(config)
-
 #
 # Bittrex API autotrader object.
 #
 class BittrexAutoTrader(object):
     """
     Bittrex API autotrader object.
+
+    Dependencies:
+        humanfriendly
+        numpy
     """
 
     def __init__(self, settings):
@@ -102,6 +75,7 @@ class BittrexAutoTrader(object):
         self.init()
 
     def init(self):
+
         """
         Initialize automatic trading (BUY/SELL <> LOW/HIGH).
         """
@@ -305,12 +279,57 @@ class BittrexAutoTrader(object):
             time.sleep(seconds)
 
 #
+# Bittrex AutoTrader config object.
+#
+class BittrexAutoTraderConfig(object):
+    """
+    Bittrex AutoTrader config object.
+    """
+
+    @staticmethod
+    def get_values():
+        """
+        Return command-line arguments / configuration values as a dictionary.
+
+        Returns:
+            dict
+
+        .. seealso:: bittrex_autotrader.conf.example
+        """
+        argv = sys.argv
+
+        arg_parser = argparse.ArgumentParser()
+        arg_parser.add_argument('--conf', metavar='FILE')
+
+        # Configuration options can be passed as arguments.
+        arg_parser.add_argument('--apikey', required='--conf' not in argv)
+        arg_parser.add_argument('--secret', required='--conf' not in argv)
+        arg_parser.add_argument('--market', required='--conf' not in argv)
+        arg_parser.add_argument('--units',  required='--conf' not in argv)
+        arg_parser.add_argument('--spread', required='--conf' not in argv)
+
+        args, remaining_args = arg_parser.parse_known_args()
+
+        if args.conf:
+            config_parser = ConfigParser.SafeConfigParser()
+            config_parser.read([args.conf])
+
+            vals = dict(config_parser.items('config'))
+        else:
+            vals = vars(args)
+
+        return vals
+#
 # Bittrex API request object.
 #
 class BittrexApiRequest(object):
     """
     Bittrex API request object.
+
+    Dependencies:
+        requests
     """
+
     BASE_URL = 'https://bittrex.com/api/v1.1/'
 
     def __init__(self, apikey, secret):
@@ -687,4 +706,6 @@ class BittrexApiRequest(object):
 # Start program.
 #
 if __name__ == '__main__':
-    main()
+
+    # Let's get this party started.
+    BittrexAutoTrader(BittrexAutoTraderConfig.get_values())
