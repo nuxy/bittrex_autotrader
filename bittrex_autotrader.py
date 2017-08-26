@@ -44,13 +44,13 @@ class BittrexAutoTrader(object):
         numpy
     """
 
-    def __init__(self, settings):
+    def __init__(self, options):
         """
         Create a new instance of BittrexAutoTrader
 
         Args:
-            settings (dict):
-                Dictionary of object settings.
+            options (dict):
+                Dictionary of options.
 
         Attributes:
             apiReq (BittrexApiRequest):
@@ -66,10 +66,10 @@ class BittrexAutoTrader(object):
             active (int):
                 Incremented value for orders.
         """
-        self.apiReq = BittrexApiRequest(settings['apikey'], settings['secret'])
-        self.market = settings['market']
-        self.units  = settings['units']
-        self.spread = settings['spread'].split('/') # ['markup', 'markdown']
+        self.apiReq = BittrexApiRequest(options['apikey'], options['secret'])
+        self.market = options['market']
+        self.units  = options['units']
+        self.spread = options['spread'].split('/')
         self.orders = []
         self.active = 0
         self.init()
