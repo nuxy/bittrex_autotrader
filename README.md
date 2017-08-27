@@ -30,7 +30,7 @@ The following options can be passed as script arguments or defined in a file:
 
 ## Donations
 
-If this script makes you ~~money~~ happy, buy me :beer: using the one of following crypto-currencies:
+If this script makes you ~~money~~ happy then buy me a :beer: using one of the crypto-currencies below:
 
     Bitcoin:  1Cvr9aHNmV2riULkfgEqofQtuhxCBe7A16
     Litecoin: LcMKbewQftytYnmsGTk63BW7yPCnUKFNni
