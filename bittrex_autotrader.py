@@ -63,6 +63,8 @@ class BittrexAutoTrader(object):
                 BUY/SELL markup/markdown percentage.
             method (str):
                 Moving Average calculation method.
+            delay (str):
+                Seconds to delay order status requests (default: 30).
             orders (list):
                 List of orders as dictionary items.
             active (int):
@@ -73,6 +75,7 @@ class BittrexAutoTrader(object):
         self.units  = options['units']
         self.spread = options['spread'].split('/')
         self.method = options['method']
+        self.delay  = options['delay']
         self.orders = []
         self.active = 0
         self.init()
@@ -84,7 +87,10 @@ class BittrexAutoTrader(object):
 
         # Prompt for first transaction type (trade BUY/SELL).
         choice = humanfriendly.prompt_for_choice(
-            ['BUY in (need units to trade)', 'SELL out (need liquidity)'],
+            [
+                'BUY in at markdown (need units to trade)',
+                'SELL out at markup (need liquidity)'
+            ],
             default='SELL'
         )
 
@@ -99,7 +105,7 @@ class BittrexAutoTrader(object):
                 )
 
                 if order['IsOpen']:
-                    BittrexAutoTrader._wait(seconds=30)
+                    BittrexAutoTrader._wait(seconds=self.delay)
                     continue
 
             # Submit a new order.
@@ -204,8 +210,6 @@ class BittrexAutoTrader(object):
 
         Returns:
             list
-
-        @statucfunction
         """
         return [
             item for i, item in enumerate(data) if data[i].get(key) == value
@@ -283,11 +287,11 @@ class BittrexAutoTrader(object):
 
         Args:
             label (str):
-                The label for the spinner.
+                The label for the spinner (default: Waiting).
             seconds (int):
-                Seconds to delay execution.
+                Seconds to delay execution (default: 10).
             timer (bool):
-                Show the elapsed time.
+                Show the elapsed time (default: False).
         """
         with humanfriendly.AutomaticSpinner(label, show_time=timer) as spinner:
             time.sleep(seconds)
@@ -355,6 +359,12 @@ class BittrexAutoTraderConfig(object):
             '--method',
             help='Moving Average calculation method (default: arithmetic)',
             default='arithmetic'
+        )
+
+        arg_parser.add_argument(
+            '--delay',
+            help='Seconds to delay order status requests (default: 30)',
+            default='30'
         )
 
         args, remaining_args = arg_parser.parse_known_args()

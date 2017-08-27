@@ -18,18 +18,19 @@ To install the Python script dependencies:
 
 The following options can be passed as script arguments or defined in a file:
 
-| Option | Description                          | Format                           | Default value |
-| -------| -------------------------------------|----------------------------------|---------------|
-| apikey | Bittrex issued API key.              | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
-| secret | Bittrex issued API secret.           | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
-| market | String literal for the market.       | BTC-XXX                          | BTC-LTC       |
-| units  | BUY/SELL total units.                | 1                                | 1             |
-| spread | BUY/SELL markup/markdown percentage. | 0.0/0.0                          | 0.1/0.1       |
-| method | Moving Average calculation method.   |                                  | arithmetic    |
+| Option | Description                             | Example                          | Default value |
+| -------| ----------------------------------------|----------------------------------|---------------|
+| apikey | Bittrex issued API key.                 | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
+| secret | Bittrex issued API secret.              | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
+| market | String literal for the market.          | BTC-XXX                          | BTC-LTC       |
+| units  | BUY/SELL total units.                   | 0                                | 1             |
+| spread | BUY/SELL markup/markdown percentage.    | 0.0/0.0                          | 0.1/0.1       |
+| method | Moving Average calculation method.      | method                           | arithmetic    |
+| delay  | Seconds to delay order status requests. | 0                                | 30            |
 
 ## Donations
 
-If this script makes you money, buy me :beer:
+If this script makes you ~~money~~ happy, buy me :beer: using the one of following crypto-currencies:
 
     Bitcoin:  1Cvr9aHNmV2riULkfgEqofQtuhxCBe7A16
     Litecoin: LcMKbewQftytYnmsGTk63BW7yPCnUKFNni
