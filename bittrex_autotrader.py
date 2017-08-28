@@ -289,13 +289,13 @@ class BittrexAutoTrader(object):
         Args:
             label (str):
                 The label for the spinner (default: Waiting).
-            seconds (int):
+            seconds (float):
                 Seconds to delay execution (default: 10).
             timer (bool):
                 Show the elapsed time (default: False).
         """
         with humanfriendly.AutomaticSpinner(label, show_time=timer) as spinner:
-            time.sleep(seconds)
+            time.sleep(float(seconds))
 
 #
 # Bittrex AutoTrader config object.
