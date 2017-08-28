@@ -193,7 +193,7 @@ class BittrexAutoTrader(object):
         print humanfriendly.tables.format_pretty_table(
             stdout['rows'],
             stdout['cols']
-        ), "\n", time.strftime('%Y-%m-%d %H:%M:%S'), "\n"
+        ), "\n", time.strftime(' %Y-%m-%d %H:%M:%S '), "\n"
 
     @staticmethod
     def _list_of_dict_filter_by(data, key, value):
