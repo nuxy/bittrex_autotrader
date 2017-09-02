@@ -78,15 +78,14 @@ class BittrexAutoTrader(object):
         self.delay  = options['delay']
         self.orders = []
         self.active = 0
-        self.init()
 
-    def init(self):
+    def run(self):
         """
-        Initialize automatic trading.
+        Prompt transaction type and start trading.
         """
 
         # Prompt for first transaction type (trade BUY/SELL).
-        choice = humanfriendly.prompt_for_choice(
+        prompt_choice = humanfriendly.prompt_for_choice(
             [
                 'BUY in at markdown (need units to trade)',
                 'SELL out at markup (need liquidity)'
@@ -94,7 +93,7 @@ class BittrexAutoTrader(object):
             default='SELL'
         )
 
-        next_trade = choice.split(' ', 1)[0]
+        next_trade = prompt_choice.split(' ', 1)[0]
 
         while True:
 
@@ -105,7 +104,7 @@ class BittrexAutoTrader(object):
                 )
 
                 if order['IsOpen']:
-                    BittrexAutoTrader._wait(seconds=self.delay)
+                    BittrexAutoTrader._wait(seconds=float(self.delay))
                     continue
 
             # Submit a new order.
@@ -123,21 +122,15 @@ class BittrexAutoTrader(object):
         """
 
         # Get BUY/SELL order market totals.
-        market_history = self.apiReq.public_market_history(self.market)
+        market_totals = self.get_market_totals(trade_type)
 
-        price_history = BittrexAutoTrader._numpy_loadtxt(
-            BittrexAutoTrader._list_of_dict_filter_by(
-                market_history, 'OrderType', trade_type
-            ),
-            ['Price']
-        )
-        market_max = round(price_history.max(), 8)
+        market_max = round(market_totals.max(), 8)
 
         # Calculate Moving Average (TODO: weights).
         if self.method == 'weighted':
-            moving_avg = round(price_history.average(weights=None), 8)
+            moving_avg = round(market_totals.average(weights=None), 8)
         else:
-            moving_avg = round(price_history.mean(), 8)
+            moving_avg = round(market_totals.mean(), 8)
 
         # Get current ASK/BID orders.
         ticker = self.apiReq.public_ticker(self.market)
@@ -148,10 +141,10 @@ class BittrexAutoTrader(object):
             total_units = self.units
 
         # Format human-friendly results.
-        currency = self.market.replace('BTC-', '')
+        currency_symbol = self.market.replace('BTC-', '')
 
         stdout = {
-            'cols': [trade_type, currency],
+            'cols': [trade_type, currency_symbol],
             'rows': []
         }
 
@@ -194,6 +187,26 @@ class BittrexAutoTrader(object):
             stdout['rows'],
             stdout['cols']
         ), "\n", time.strftime(' %Y-%m-%d %H:%M:%S '), "\n"
+
+    def get_market_totals(self, trade_type='SELL'):
+        """
+        Returns BUY/SELL order market totals as ndarray.
+
+        Args:
+            trade_type (str):
+                BUY or SELL (default: BUY).
+
+        Returns:
+            ndarray
+        """
+        market_history = self.apiReq.public_market_history(self.market)
+
+        return BittrexAutoTrader._numpy_loadtxt(
+            BittrexAutoTrader._list_of_dict_filter_by(
+                market_history, 'OrderType', trade_type
+            ),
+            ['Price']
+        )
 
     @staticmethod
     def _list_of_dict_filter_by(data, key, value):
@@ -294,7 +307,7 @@ class BittrexAutoTrader(object):
                 Show the elapsed time (default: False).
         """
         with humanfriendly.AutomaticSpinner(label, show_time=timer) as spinner:
-            time.sleep(float(seconds))
+            time.sleep(seconds)
 
 #
 # Bittrex AutoTrader config object.
@@ -305,7 +318,7 @@ class BittrexAutoTraderConfig(object):
     """
 
     @staticmethod
-    def get_values():
+    def values():
         """
         Return command-line arguments / configuration values as a dictionary.
 
@@ -769,4 +782,6 @@ class BittrexApiRequest(object):
 if __name__ == '__main__':
 
     # Let's get this party started.
-    BittrexAutoTrader(BittrexAutoTraderConfig.get_values())
+    BittrexAutoTrader(
+        BittrexAutoTraderConfig.values()
+    ).run()
