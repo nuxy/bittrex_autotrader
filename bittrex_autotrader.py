@@ -65,10 +65,6 @@ class BittrexAutoTrader(object):
                 Moving Average calculation method.
             delay (str):
                 Seconds to delay order status requests (default: 30).
-            orders (list):
-                List of orders as dictionary items.
-            active (int):
-                Incremented value for orders.
         """
         self.apiReq = BittrexApiRequest(options['apikey'], options['secret'])
         self.market = options['market']
@@ -76,8 +72,9 @@ class BittrexAutoTrader(object):
         self.spread = options['spread'].split('/')
         self.method = options['method']
         self.delay  = options['delay']
-        self.orders = []
-        self.active = 0
+
+        # List of orders as dictionary items.
+        self._orders = []
 
     def run(self):
         """
@@ -98,9 +95,9 @@ class BittrexAutoTrader(object):
         while True:
 
             # Check for open orders.
-            if self.orders:
+            if self._orders:
                 order = self.apiReq.account_order(
-                    self.orders[self.active - 1]['OrderUuid']
+                    self.last_order()['OrderUuid']
                 )
 
                 if order['IsOpen']:
@@ -122,7 +119,7 @@ class BittrexAutoTrader(object):
         """
 
         # Get BUY/SELL order market totals.
-        market_totals = self.get_market_totals(trade_type)
+        market_totals = self.market_totals(trade_type)
 
         market_max = round(market_totals.max(), 8)
 
@@ -135,16 +132,16 @@ class BittrexAutoTrader(object):
         # Get current ASK/BID orders.
         ticker = self.apiReq.public_ticker(self.market)
 
-        # Calculate units (50k Satoshi min requirement).
-        total_units = 0.0005 / float(ticker['Last'])
-        if total_units < self.units:
-            total_units = self.units
+        # Reinvest earnings, when available.
+        earnings = self.last_sell_price() - self.last_buy_price()
+        if earnings > 0:
+            balance = self.apiReq.account_balance('BTC')['Available']
+
+            self.units = (float(balance) / float(ticker['Last']))
 
         # Format human-friendly results.
-        currency_symbol = self.market.replace('BTC-', '')
-
         stdout = {
-            'cols': [trade_type, currency_symbol],
+            'cols': [trade_type, self.market.replace('BTC-', '')],
             'rows': []
         }
 
@@ -160,9 +157,7 @@ class BittrexAutoTrader(object):
             stdout['rows'].append(['Ask', format(ticker_bid, '.8f')])
             stdout['rows'].append(['Bid', format(trader_bid, '.8f')])
 
-            uuid = (self.apiReq.market_buy_limit(
-                self.market, total_units, trader_bid
-            ))['uuid']
+            self._submit(trade_type, trader_bid)
         else:
             ticker_ask = float(ticker['Ask'])
             trader_ask = round(
@@ -174,13 +169,7 @@ class BittrexAutoTrader(object):
             stdout['rows'].append(['Bid', format(ticker_ask, '.8f')])
             stdout['rows'].append(['Ask', format(trader_ask, '.8f')])
 
-            uuid = (self.apiReq.market_sell_limit(
-                self.market, total_units, trader_ask
-            ))['uuid']
-
-        # Store and index the order data.
-        self.orders.append(self.apiReq.account_order(uuid))
-        self.active += 1
+            self._submit(trade_type, trader_ask)
 
         # Output human-friendly results.
         print humanfriendly.tables.format_pretty_table(
@@ -188,7 +177,7 @@ class BittrexAutoTrader(object):
             stdout['cols']
         ), "\n", time.strftime(' %Y-%m-%d %H:%M:%S '), "\n"
 
-    def get_market_totals(self, trade_type='SELL'):
+    def market_totals(self, trade_type='BUY'):
         """
         Returns BUY/SELL order market totals as ndarray.
 
@@ -207,6 +196,67 @@ class BittrexAutoTrader(object):
             ),
             ['Price']
         )
+
+    def last_order(self, trade_type=None):
+        """
+        Return the last successful order by type.
+
+        Args:
+            trade_type (str):
+                BUY or SELL (optional).
+
+        Returns:
+            dict
+        """
+        for order in reversed(self._orders):
+            if not trade_type or trade_type in order['Type']:
+                return order
+
+    def last_buy_price(self):
+        """
+        Return the last successful BUY price.
+
+        Returns:
+            float (default: 0)
+        """
+        order = self.last_order('BUY')
+
+        return float(order['Price']) if order else 0
+
+    def last_sell_price(self):
+        """
+        Return the last successfull SELL price.
+
+        Returns:
+            float (default: 0)
+        """
+        order = self.last_order('SELL')
+
+        return float(order['Price']) if order else 0
+
+    def _submit(self, trade_type, price):
+        """
+        Submit the API request and store order details.
+
+        Args:
+            trade_type (str):
+                BUY or SELL (default: SELL).
+        """
+        if trade_type == 'BUY':
+            uuid = self.apiReq.market_buy_limit(
+                self.market, self.units, price
+            )['uuid']
+        else:
+            uuid = self.apiReq.market_sell_limit(
+                self.market, self.units, price
+            )['uuid']
+
+        self._orders.append({
+            'OrderUuid': uuid,
+            'Type': trade_type,
+            'Price': price,
+            'Quantity': self.units
+        })
 
     @staticmethod
     def _list_of_dict_filter_by(data, key, value):
