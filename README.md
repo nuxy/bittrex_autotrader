@@ -1,12 +1,10 @@
-# bittrex_autotrader
+# Bittrex AutoTrader
 
 Bittrex currency exchange autotrading script _in a nutshell_.
 
-:skull: This is **currently in development**. You have been warned :skull:
-
 ## Dependencies
 
-To install the Python script dependencies:
+To install the Python script dependencies and generate API documentation:
 
     $ make
 
@@ -28,6 +26,21 @@ The following options can be passed as script arguments or defined in a file:
 | method | Moving Average calculation method.      | method                           | arithmetic    |
 | delay  | Seconds to delay order status requests. | 0                                | 30            |
 
+## Bittrex API
+
+Outside of the basic trading functionality a full implementation of the Bittrex API has been provided for those would want to extend this script.  Runnning `make` will generate the class HTML documentation.
+
+### Usage Example
+
+    #!/usr/bin/env python
+
+    from bittrex_autotrader import BittrexApiRequest
+
+    apiReq = BittrexApiRequest(apikey, secret)
+    ticker = apiReq.public_ticker(market)
+
+    print ticker['Ask']
+
 ## Donations
 
 If this script makes you ~~money~~ happy then buy me a :beer: using one of the crypto-currencies below:
@@ -39,7 +52,9 @@ If this script makes you ~~money~~ happy then buy me a :beer: using one of the c
 
 This package is distributed in the hope that it will be useful, but without any warranty; without even the implied warranty of merchantability or fitness for a particular purpose.
 
-_bittrex_autotrader_ is provided under the terms of the [MIT license](http://www.opensource.org/licenses/mit-license.php)
+_Bittrex AutoTrader_ is provided under the terms of the [MIT license](http://www.opensource.org/licenses/mit-license.php)
+
+[Bittrex](https://bittrex.com) is a registered trademark of Bittrex, INC
 
 ## Author
 
