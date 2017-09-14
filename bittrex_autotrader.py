@@ -132,12 +132,8 @@ class BittrexAutoTrader(object):
         # Get current ASK/BID orders.
         ticker = self.apiReq.public_ticker(self.market)
 
-        # Reinvest earnings, when available.
-        earnings = self.last_sell_price() - self.last_buy_price()
-        if earnings > 0:
-            balance = self.apiReq.account_balance('BTC')['Available']
-
-            self.units = (float(balance) / float(ticker['Last']))
+        # Reinvest earnings, if available.
+        self.reinvest_earnings(ticker['Last'])
 
         # Format human-friendly results.
         stdout = {
@@ -233,6 +229,27 @@ class BittrexAutoTrader(object):
         order = self.last_order('SELL')
 
         return float(order['Price']) if order else 0
+
+    def reinvest_earnings(self, last_price):
+        """
+        Update units to purchase based on total earnings available.
+
+        Args:
+            last_price (float):
+                Latest market SELL price.
+        """
+        sell_price = self.last_sell_price()
+        buy_price  = self.last_buy_price()
+
+        if sell_price and buy_price:
+            earnings = sell_price - buy_price
+            if earnings > 0:
+                available = (float(self.units) * sell_price) + earnings
+
+                # Check balance can cover purchase.
+                units = available / last_price
+                if (units * last_price) <= available:
+                    self.units = units
 
     def _submit(self, trade_type, price):
         """
