@@ -133,7 +133,7 @@ class BittrexAutoTrader(object):
         ticker = self.apiReq.public_ticker(self.market)
 
         # Reinvest earnings, if available.
-        self.reinvest_earnings(float(ticker['Last']))
+        self._reinvest(float(ticker['Last']))
 
         # Format human-friendly results.
         stdout = {
@@ -230,7 +230,7 @@ class BittrexAutoTrader(object):
 
         return float(order['Price']) if order else 0
 
-    def reinvest_earnings(self, last_price):
+    def _reinvest(self, last_price):
         """
         Update units to purchase based on total earnings available.
 
