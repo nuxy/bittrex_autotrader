@@ -43,14 +43,14 @@ Outside of the basic trading functionality a full implementation of the Bittrex 
 
 ## Developer Notes
 
-* If you are new to cryptocurrencies please, and I stress, **do NOT use this script**. :skull: You have been warned. :skull:
+* If you are new to cryptocurrencies please, and I stress, **Do NOT use this script**. :skull: You have been warned :skull:
 * Certain markets are more volatile than others. It's very easy to get priced out of a market, so choose wisely.
 * Based on the defined `spread` you can gain/lose units of value.  I take no responsiblity for your losses.
 * New features will be added when I have free time available.  You can motivate me by _donating_ below.
 
 ## Donations
 
-If this script makes you ~~money~~ happy then buy me a :beer: using one of the crypto-currencies below:
+If this script makes you ~~money~~ happy then buy me a :beer: using one of the cryptocurrencies below:
 
     Bitcoin:  1Cvr9aHNmV2riULkfgEqofQtuhxCBe7A16
     Litecoin: LcMKbewQftytYnmsGTk63BW7yPCnUKFNni
