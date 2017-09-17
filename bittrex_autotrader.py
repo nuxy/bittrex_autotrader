@@ -151,7 +151,10 @@ class BittrexAutoTrader(object):
             stdout['rows'].append(['Avg', format(moving_avg, '.8f')])
             stdout['rows'].append(['Max', format(market_max, '.8f')])
             stdout['rows'].append(['Ask', format(ticker_bid, '.8f')])
-            stdout['rows'].append(['Bid', format(trader_bid, '.8f')])
+            stdout['rows'].append(['Bid', humanfriendly.terminal.ansi_wrap(
+                format(trader_bid, '.8f'),
+                bold=True
+            )])
 
             self._submit(trade_type, trader_bid)
         else:
@@ -163,7 +166,10 @@ class BittrexAutoTrader(object):
             stdout['rows'].append(['Avg', format(moving_avg, '.8f')])
             stdout['rows'].append(['Max', format(market_max, '.8f')])
             stdout['rows'].append(['Bid', format(ticker_ask, '.8f')])
-            stdout['rows'].append(['Ask', format(trader_ask, '.8f')])
+            stdout['rows'].append(['Ask', humanfriendly.terminal.ansi_wrap(
+                format(trader_ask, '.8f'),
+                bold=True
+            )])
 
             self._submit(trade_type, trader_ask)
 
