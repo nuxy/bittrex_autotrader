@@ -477,7 +477,14 @@ class BittrexApiRequest(object):
         requests
     """
 
+    # Bittrex API URL
     BASE_URL = 'https://bittrex.com/api/v1.1/'
+
+    # Total retries on failed connection.
+    CONNECT_RETRIES = 10
+
+    # Delay between failed requests.
+    CONNECT_WAIT = 5
 
     def __init__(self, apikey, secret):
         """
@@ -820,9 +827,22 @@ class BittrexApiRequest(object):
         if signed == True:
             headers['apisign'] = BittrexApiRequest._sign(self.secret, url)
 
+
         # Send the API request.
-        req = requests.get(url, headers=headers)
-        res = req.json()
+        res = None
+
+        for i in range(BittrexApiRequest.CONNECT_RETRIES):
+            try:
+                req = requests.get(url, headers=headers)
+                res = req.json()
+            except requests.exceptions.ConnectionError:
+                time.sleep(BittrexApiRequest.CONNECT_WAIT)
+            else:
+                break
+
+        if res == None:
+            print >> sys.stderr, 'Script failure: Connection timeout'
+            sys.exit(1)
 
         if res['success'] == False:
             print >> sys.stderr, "Bittex response: %s" % res['message']
