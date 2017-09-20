@@ -180,6 +180,8 @@ class BittrexAutoTrader(object):
 
             self._submit(trade_type, trader_ask)
 
+        stdout['rows'].append(['Qty', format(float(self.units), '.8f')])
+
         # Output human-friendly results.
         print humanfriendly.tables.format_pretty_table(
             stdout['rows'],
@@ -263,10 +265,11 @@ class BittrexAutoTrader(object):
                 available = (processed - \
                     (processed * BittrexAutoTrader.TRADE_FEES)) + earnings
 
-                humanfriendly.terminal.ansi_wrap(
+                # Output human-friendly results.
+                print humanfriendly.terminal.ansi_wrap(
                     ''.join(['Total earnings: ', str(earnings)]),
                     bold=True
-                )
+                ), "\n"
 
                 # Check balance can cover purchase.
                 quantity = available / last_price
