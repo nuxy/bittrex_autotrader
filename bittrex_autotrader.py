@@ -843,18 +843,16 @@ class BittrexApiRequest(object):
         if signed == True:
             headers['apisign'] = BittrexApiRequest._sign(self.secret, url)
 
-
         # Send the API request.
-        res = None
-
         for i in range(BittrexApiRequest.CONNECT_RETRIES):
             try:
                 req = requests.get(url, headers=headers)
-                res = req.json()
             except requests.exceptions.ConnectionError:
                 time.sleep(BittrexApiRequest.CONNECT_WAIT)
             else:
                 break
+
+        res = req.json()
 
         if res == None:
             print >> sys.stderr, 'Script failure: Connection timeout'
