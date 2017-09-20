@@ -44,6 +44,9 @@ class BittrexAutoTrader(object):
         numpy
     """
 
+    # Percent Bittrex charges for BUY/SELL trades.
+    TRADE_FEES = .0025
+
     def __init__(self, options):
         """
         Create a new instance of BittrexAutoTrader
@@ -132,9 +135,6 @@ class BittrexAutoTrader(object):
         # Get current ASK/BID orders.
         ticker = self.apiReq.public_ticker(self.market)
 
-        # Reinvest earnings, if available.
-        self._reinvest(float(ticker['Last']))
-
         # Format human-friendly results.
         stdout = {
             'cols': [trade_type, self.market.replace('BTC-', '')],
@@ -143,6 +143,11 @@ class BittrexAutoTrader(object):
 
         # Perform trade operation.
         if trade_type == 'BUY':
+
+            # Reinvest earnings.
+            self._reinvest(float(ticker['Last']))
+
+            # Submit limit BUY
             ticker_bid = float(ticker['Bid'])
             trader_bid = round(
                 (ticker_bid - (ticker_bid * float(self.spread[1]))), 8
@@ -158,6 +163,8 @@ class BittrexAutoTrader(object):
 
             self._submit(trade_type, trader_bid)
         else:
+
+            # Submit limit SELL
             ticker_ask = float(ticker['Ask'])
             trader_ask = round(
                 (ticker_ask + (ticker_ask * float(self.spread[0]))), 8
@@ -244,18 +251,27 @@ class BittrexAutoTrader(object):
             last_price (float):
                 Latest market SELL price.
         """
+        quantity = float(self.units)
+
         sell_price = self.last_sell_price()
-        buy_price  = self.last_buy_price()
+        buy_price = self.last_buy_price()
 
         if sell_price and buy_price:
-            earnings = sell_price - buy_price
+            earnings = (sell_price - buy_price) * quantity
             if earnings > 0:
-                available = (float(self.units) * sell_price) + earnings
+                processed = quantity * sell_price
+                available = (processed - \
+                    (processed * BittrexAutoTrader.TRADE_FEES)) + earnings
+
+                humanfriendly.terminal.ansi_wrap(
+                    ''.join(['Total earnings: ', str(earnings)]),
+                    bold=True
+                )
 
                 # Check balance can cover purchase.
-                units = available / last_price
-                if (units * last_price) <= available:
-                    self.units = units
+                quantity = available / last_price
+                if (quantity * last_price) <= available:
+                    self.units = quantity
 
     def _submit(self, trade_type, price):
         """
