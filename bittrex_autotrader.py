@@ -184,7 +184,7 @@ class BittrexAutoTrader(object):
                 bold=True
             )])
 
-        self._submit(trade_type, trader_ask)
+            self._submit(trade_type, trader_ask)
 
         stdout['rows'].append(['Qty', format(float(self.units), '.8f')])
 
