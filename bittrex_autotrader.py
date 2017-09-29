@@ -147,10 +147,13 @@ class BittrexAutoTrader(object):
             # Reinvest earnings.
             self._reinvest(float(ticker['Last']))
 
+            # Calculate markdown.
+            markdown = BittrexAutoTrader._calc_decimal_percent(self.spread[1])
+
             # Submit limit BUY
             ticker_bid = float(ticker['Bid'])
             trader_bid = round(
-                (ticker_bid - (ticker_bid * float(self.spread[1]))), 8
+                (ticker_bid - (ticker_bid * markdown)), 8
             )
 
             stdout['rows'].append(['Avg', format(moving_avg, '.8f')])
@@ -164,10 +167,13 @@ class BittrexAutoTrader(object):
             self._submit(trade_type, trader_bid)
         else:
 
+            # Calculate markup.
+            markup = BittrexAutoTrader._calc_decimal_percent(self.spread[0])
+
             # Submit limit SELL
             ticker_ask = float(ticker['Ask'])
             trader_ask = round(
-                (ticker_ask + (ticker_ask * float(self.spread[0]))), 8
+                (ticker_ask + (ticker_ask * markup)), 8
             )
 
             stdout['rows'].append(['Avg', format(moving_avg, '.8f')])
@@ -178,7 +184,7 @@ class BittrexAutoTrader(object):
                 bold=True
             )])
 
-            self._submit(trade_type, trader_ask)
+        self._submit(trade_type, trader_ask)
 
         stdout['rows'].append(['Qty', format(float(self.units), '.8f')])
 
@@ -299,6 +305,20 @@ class BittrexAutoTrader(object):
             'Price': price,
             'Quantity': self.units
         })
+
+    @staticmethod
+    def _calc_decimal_percent(num):
+        """
+        Returns string percentage as a decimal percent.
+
+        Args:
+            num (str):
+                Percentage as string.
+
+        Returns:
+            float
+        """
+        return float(num) if float(num) < 1 else float(num) / 100
 
     @staticmethod
     def _list_of_dict_filter_by(data, key, value):
