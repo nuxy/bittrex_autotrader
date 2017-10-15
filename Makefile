@@ -1,3 +1,5 @@
 init:
 	pip install -r requirements.txt
-	pydoc -w bittrex_autotrader
+
+docs:
+	python -m pydoc -w bittrex_autotrader
