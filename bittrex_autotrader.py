@@ -877,7 +877,7 @@ class BittrexApiRequest(object):
 
         res = req.json()
 
-        if res == None:
+        if res == None or not res['result']:
             print >> sys.stderr, 'Script failure: Connection timeout'
             sys.exit(1)
 
