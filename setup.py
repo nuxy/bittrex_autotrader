@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
   name = 'bittrex_autotrader',
   packages = ['bittrex_autotrader'],
-  version = '0.0.4',
+  version = '0.0.5',
   description = 'Bittrex currency exchange autotrading script in a nutshell.',
   author = 'Marc S. Brooks',
   author_email = 'devel@mbrooks.info',
