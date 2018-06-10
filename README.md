@@ -29,7 +29,7 @@ To run the script:
 
     $ ./bittrex_autotrader.py --conf bittrex_autotrader.conf
 
-The default configuration requires the user to decide the first type of trade;
+Assuming there are no open orders, the default configuration requires the user to decide the first type of trade;
 
     1. BUY in at markdown (need units to trade)
     2. SELL out at markup (need liquidity)
@@ -43,6 +43,8 @@ The script will then retrieve the latest market rates, calculate an asking price
 Once an order has completed, the script will again retrieve the latest market rates and submit a new order of the opposite type.
 
 If an order is cancelled (via the Bittrex Web UI), the script will recalculate based on the latest market rates and submit an order of the same type.
+
+If the script is stopped and re-run while an order is outstanding, it will resume monitoring and continue as normal once the order is completed or cancelled.
 
 ### Running as a service
 
