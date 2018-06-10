@@ -92,7 +92,7 @@ class BittrexAutoTrader(object):
 
         self._orders = self.apiReq.market_open_orders(self.market)
 
-        if self.prompt == 'True':
+        if not self._orders and self.prompt == 'True':
             prompt_choice = humanfriendly.prompt_for_choice(
                 [
                     'BUY in at markdown (need units to trade)',
