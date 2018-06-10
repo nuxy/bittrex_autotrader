@@ -722,15 +722,9 @@ class BittrexApiRequest(object):
         Returns:
             list
         """
-
-        try:
-            result = self.get('market/getopenorders', {
+        return self.get('market/getopenorders', {
                 'market': market
                 }, signed=True)
-        except:
-            result = []
-
-        return result
 
     def account_balances(self):
         """
@@ -905,8 +899,8 @@ class BittrexApiRequest(object):
                 break
 
         res = req.json()
-
-        if res == None or not res['result']:
+        
+        if res == None:
             print >> sys.stderr, 'Script failure: Connection timeout'
             sys.exit(1)
 
