@@ -6,3 +6,4 @@ units  = 1
 spread = 0.1/0.1
 method = arithmetic
 delay  = 30
+prompt = True
