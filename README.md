@@ -8,23 +8,51 @@ To install the Python script dependencies and generate API documentation:
 
     $ make
 
-## Basic Usage
-
-    $ ./bittrex_autotrader.py --conf bittrex_autotrader.conf
-
 ## Configuration options
 
 The following options can be passed as script arguments or defined in a file:
 
-| Option | Description                             | Example                          | Default value |
-| -------| ----------------------------------------|----------------------------------|---------------|
-| apikey | Bittrex issued API key.                 | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
-| secret | Bittrex issued API secret.              | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
-| market | String literal for the market.          | BTC-XXX                          | BTC-LTC       |
-| units  | BUY/SELL total units.                   | 0                                | 1             |
-| spread | BUY/SELL markup/markdown percentage.    | 0.0/0.0                          | 0.1/0.1       |
-| method | Moving Average calculation method.      | method                           | arithmetic    |
-| delay  | Seconds to delay order status requests. | 0                                | 30            |
+| Option | Description                               | Example                          | Default value |
+| -------| ------------------------------------------|----------------------------------|---------------|
+| apikey | Bittrex issued API key.                   | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
+| secret | Bittrex issued API secret.                | XxXxxXXxXxxXxxXxXxxXxXxxXXxXxxXx |               |
+| market | String literal for the market.            | BTC-XXX                          | BTC-LTC       |
+| units  | BUY/SELL total units.                     | 0                                | 1             |
+| spread | BUY/SELL markup/markdown percentage.      | 0.0/0.0                          | 0.1/0.1       |
+| method | Moving Average calculation method.        | method                           | arithmetic    |
+| delay  | Seconds to delay order status requests.   | 0                                | 30            |
+| prompt | Require user interaction to begin trading.| False                            | True          |
+
+## Basic usage
+
+To run the script:
+
+    $ ./bittrex_autotrader.py --conf bittrex_autotrader.conf
+
+Assuming there are no open orders, the default configuration requires the user to decide the first type of trade;
+
+    1. BUY in at markdown (need units to trade)
+    2. SELL out at markup (need liquidity)
+
+    Enter your choice as a number or unique substring (Control-C aborts):
+
+Make a choice then press Enter.
+
+The script will then retrieve the latest market rates, calculate an asking price based on your configuration and submit an order to Bittrex.
+
+Once an order has completed, the script will again retrieve the latest market rates and submit a new order of the opposite type.
+
+If an order is cancelled (via the Bittrex Web UI), the script will recalculate based on the latest market rates and submit an order of the same type.
+
+If the script is stopped and re-run while an order is outstanding, it will resume monitoring and continue as normal once the order is completed or cancelled.
+
+### Running as a service
+
+If you wish to automate the running of the script (using [Supervisor](http://supervisord.org/) for example), set the 'prompt' configuration option to 'False'.
+
+On startup, the script will automatically check for an open order and wait for completion or cancellation before initiating an order of the opposite type.
+
+If you do not have any open orders it will initiate a 'SELL' order by default. If you do not have enough funds to carry out this operation, the script will end.
 
 ## Bittrex API
 

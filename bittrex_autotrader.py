@@ -32,6 +32,9 @@ import StringIO
 import sys
 import time
 
+SELL = 'SELL'
+BUY = 'BUY'
+
 #
 # Bittrex API autotrader object.
 #
@@ -68,6 +71,8 @@ class BittrexAutoTrader(object):
                 Moving Average calculation method.
             delay (str):
                 Seconds to delay order status requests (default: 30).
+            prompt (bool):
+                Require user interaction to begin trading.
         """
         self.apiReq = BittrexApiRequest(options['apikey'], options['secret'])
         self.market = options['market']
@@ -75,25 +80,33 @@ class BittrexAutoTrader(object):
         self.spread = options['spread'].split('/')
         self.method = options['method']
         self.delay  = options['delay']
+        self.prompt = options['prompt']
 
         # List of orders as dictionary items.
         self._orders = []
 
     def run(self):
         """
-        Prompt transaction type and start trading.
+        Get open orders, prompt if necessary / determine next trade type and start trading.
         """
 
-        # Prompt for first transaction type (trade BUY/SELL).
-        prompt_choice = humanfriendly.prompt_for_choice(
-            [
-                'BUY in at markdown (need units to trade)',
-                'SELL out at markup (need liquidity)'
-            ],
-            default='SELL'
-        )
+        self._orders = self.apiReq.market_open_orders(self.market)
 
-        next_trade = prompt_choice.split(' ', 1)[0]
+        if not self._orders and self.prompt == 'True':
+            prompt_choice = humanfriendly.prompt_for_choice(
+                [
+                    'BUY in at markdown (need units to trade)',
+                    'SELL out at markup (need liquidity)'
+                ],
+                default='SELL'
+            )
+
+            next_trade = prompt_choice.split(' ', 1)[0]
+        else:
+            next_trade = SELL
+                
+            if self._orders and self.last_order()['OrderType'] == 'LIMIT_SELL':
+                next_trade = BUY                
 
         while True:
 
@@ -105,14 +118,18 @@ class BittrexAutoTrader(object):
 
                 if order['IsOpen']:
                     BittrexAutoTrader._wait(seconds=float(self.delay))
-                    continue
+                    continue     
+
+                #Allow user to cancel order remotely, recalculate and resubmit
+                if order['CancelInitiated']:
+                    next_trade = BUY if next_trade == SELL else SELL     
 
             # Submit a new order.
             self.submit_order(next_trade)
 
-            next_trade = 'BUY' if next_trade == 'SELL' else 'SELL'
+            next_trade = BUY if next_trade == SELL else SELL
 
-    def submit_order(self, trade_type='BUY'):
+    def submit_order(self, trade_type=BUY):
         """
         Submit an order to the Bittrex API.
 
@@ -142,7 +159,7 @@ class BittrexAutoTrader(object):
         }
 
         # Perform trade operation.
-        if trade_type == 'BUY':
+        if trade_type == BUY:
 
             # Reinvest earnings.
             self._reinvest(float(ticker['Last']))
@@ -194,7 +211,7 @@ class BittrexAutoTrader(object):
             stdout['cols']
         ), "\n", time.strftime(' %Y-%m-%d %H:%M:%S '), "\n"
 
-    def market_totals(self, trade_type='BUY'):
+    def market_totals(self, trade_type=BUY):
         """
         Returns BUY/SELL order market totals as ndarray.
 
@@ -236,7 +253,7 @@ class BittrexAutoTrader(object):
         Returns:
             float (default: 0)
         """
-        order = self.last_order('BUY')
+        order = self.last_order(BUY)
 
         return float(order['Price']) if order else 0
 
@@ -247,7 +264,7 @@ class BittrexAutoTrader(object):
         Returns:
             float (default: 0)
         """
-        order = self.last_order('SELL')
+        order = self.last_order(SELL)
 
         return float(order['Price']) if order else 0
 
@@ -290,7 +307,7 @@ class BittrexAutoTrader(object):
             trade_type (str):
                 BUY or SELL (default: SELL).
         """
-        if trade_type == 'BUY':
+        if trade_type == BUY:
             uuid = self.apiReq.market_buy_limit(
                 self.market, self.units, price
             )['uuid']
@@ -490,6 +507,12 @@ class BittrexAutoTraderConfig(object):
             '--delay',
             help='Seconds to delay order status requests (default: 30)',
             default='30'
+        )
+
+        arg_parser.add_argument(
+            '--prompt',
+            help='Require user interaction to begin trading (default: true)',
+            default=True
         )
 
         args, remaining_args = arg_parser.parse_known_args()
@@ -700,8 +723,8 @@ class BittrexApiRequest(object):
             list
         """
         return self.get('market/getopenorders', {
-            'market': market
-        }, signed=True)
+                'market': market
+                }, signed=True)
 
     def account_balances(self):
         """
@@ -876,8 +899,8 @@ class BittrexApiRequest(object):
                 break
 
         res = req.json()
-
-        if res == None or not res['result']:
+        
+        if res == None:
             print >> sys.stderr, 'Script failure: Connection timeout'
             sys.exit(1)
 
