@@ -1,0 +1,4 @@
+include setup.cfg
+include setup.py
+include bittrex_autotrader/__init__.py
+include bittrex_autotrader/bittrex_autotrader
