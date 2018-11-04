@@ -27,6 +27,7 @@ import hashlib
 import hmac
 import humanfriendly
 import numpy
+import pkg_resources
 import requests
 import StringIO
 import sys
@@ -513,6 +514,14 @@ class BittrexAutoTraderConfig(object):
             '--prompt',
             help='Require user interaction to begin trading (default: true)',
             default=True
+        )
+
+        arg_parser.add_argument(
+            '--version',
+            action='version',
+
+            # pylint: disable=E1103
+            version=pkg_resources.get_distribution('bittrex_autotrader').version
         )
 
         args, remaining_args = arg_parser.parse_known_args()
