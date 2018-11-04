@@ -3,11 +3,18 @@ Bittrex AutoTrader
 
 Bittrex currency exchange autotrading script *in a nutshell*.
 
+Installation
+------------
+
+::
+
+    $ pip install bittrex_autotrader
+
 Dependencies
 ------------
 
-To install the Python script dependencies and generate API
-documentation:
+To manually install the Python script dependencies, generate API
+documentation, and create a source distribution:
 
 ::
 
