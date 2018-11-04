@@ -104,9 +104,9 @@ class BittrexAutoTrader(object):
             next_trade = prompt_choice.split(' ', 1)[0]
         else:
             next_trade = SELL
-                
+
             if self._orders and self.last_order()['OrderType'] == 'LIMIT_SELL':
-                next_trade = BUY                
+                next_trade = BUY
 
         while True:
 
@@ -118,11 +118,11 @@ class BittrexAutoTrader(object):
 
                 if order['IsOpen']:
                     BittrexAutoTrader._wait(seconds=float(self.delay))
-                    continue     
+                    continue
 
                 #Allow user to cancel order remotely, recalculate and resubmit
                 if order['CancelInitiated']:
-                    next_trade = BUY if next_trade == SELL else SELL     
+                    next_trade = BUY if next_trade == SELL else SELL
 
             # Submit a new order.
             self.submit_order(next_trade)
@@ -723,8 +723,8 @@ class BittrexApiRequest(object):
             list
         """
         return self.get('market/getopenorders', {
-                'market': market
-                }, signed=True)
+            'market': market
+        }, signed=True)
 
     def account_balances(self):
         """
@@ -868,7 +868,7 @@ class BittrexApiRequest(object):
         """
 
         # Add parameters required for signed requests.
-        if signed == True:
+        if signed is True:
             params['apikey'] = self.apikey
             params['nonce'] = str(int(time.time()))
 
@@ -886,7 +886,7 @@ class BittrexApiRequest(object):
         if headers is None:
             headers = {}
 
-        if signed == True:
+        if signed is True:
             headers['apisign'] = BittrexApiRequest._sign(self.secret, url)
 
         # Send the API request.
@@ -899,12 +899,12 @@ class BittrexApiRequest(object):
                 break
 
         res = req.json()
-        
-        if res == None:
+
+        if res is None:
             print >> sys.stderr, 'Script failure: Connection timeout'
             sys.exit(1)
 
-        if res['success'] == False:
+        if res['success'] is False:
             print >> sys.stderr, "Bittex response: %s" % res['message']
             sys.exit(1)
 
