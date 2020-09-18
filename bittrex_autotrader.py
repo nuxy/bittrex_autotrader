@@ -1,10 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
   bittrex_autotrader.py
   Bittrex currency exchange autotrading script in a nutshell.
 
-  Copyright 2017, Marc S. Brooks (https://mbrooks.info)
+  Copyright 2018-2020, Marc S. Brooks (https://mbrooks.info)
   Licensed under the MIT license:
   http://www.opensource.org/licenses/mit-license.php
 
@@ -17,19 +17,19 @@
    - This script has been tested to work with Unix-like operating systems
    - This script can be run via cronjob
 
-  .. seealso:: https://bittrex.com/Home/Api
+  .. seealso:: https://bittrex.github.io/api/v3
 """
 
 import argparse
-import ConfigParser
+import configparser
 import csv
 import hashlib
 import hmac
 import humanfriendly
+import io
 import numpy
 import pkg_resources
 import requests
-import StringIO
 import sys
 import time
 
@@ -94,7 +94,7 @@ class BittrexAutoTrader(object):
         self._orders = self.apiReq.market_open_orders(self.market)
 
         if not self._orders and self.prompt == 'True':
-            prompt_choice = humanfriendly.prompt_for_choice(
+            prompt_choice = humanfriendly.prompts.prompt_for_choice(
                 [
                     'BUY in at markdown (need units to trade)',
                     'SELL out at markup (need liquidity)'
@@ -207,10 +207,10 @@ class BittrexAutoTrader(object):
         stdout['rows'].append(['Qty', format(float(self.units), '.8f')])
 
         # Output human-friendly results.
-        print humanfriendly.tables.format_pretty_table(
+        print(humanfriendly.tables.format_pretty_table(
             stdout['rows'],
             stdout['cols']
-        ), "\n", time.strftime(' %Y-%m-%d %H:%M:%S '), "\n"
+        ), "\n", time.strftime(' %Y-%m-%d %H:%M:%S '), "\n")
 
     def market_totals(self, trade_type=BUY):
         """
@@ -290,10 +290,10 @@ class BittrexAutoTrader(object):
                     (processed * BittrexAutoTrader.TRADE_FEES)) + earnings
 
                 # Output human-friendly results.
-                print humanfriendly.terminal.ansi_wrap(
+                print(humanfriendly.terminal.ansi_wrap(
                     ''.join(['Total earnings: ', str(earnings)]),
                     bold=True
-                ), "\n"
+                ), "\n")
 
                 # Check balance can cover purchase.
                 quantity = available / last_price
@@ -372,13 +372,13 @@ class BittrexAutoTrader(object):
         Returns:
             string
         """
-        output = StringIO.StringIO()
+        output = io.StringIO()
 
         # Filter items by key names.
         writer = csv.DictWriter(output, fieldnames=keys)
         for item in data:
             filtered_item = dict(
-                (key, value) for key, value in item.iteritems() if key in keys
+                (key, value) for key, value in item.items() if key in keys
             )
             writer.writerow(filtered_item)
 
@@ -415,7 +415,7 @@ class BittrexAutoTrader(object):
             ndarray
         """
         return numpy.loadtxt(
-            StringIO.StringIO(
+            io.StringIO(
                 BittrexAutoTrader._list_of_dict_to_csv(data, keys)
             ),
             converters=converters,
@@ -436,7 +436,7 @@ class BittrexAutoTrader(object):
             timer (bool):
                 Show the elapsed time (default: False).
         """
-        with humanfriendly.AutomaticSpinner(label, show_time=timer) as spinner:
+        with humanfriendly.terminal.spinners.AutomaticSpinner(label, show_time=timer):
             time.sleep(seconds)
 
 #
@@ -528,7 +528,7 @@ class BittrexAutoTraderConfig(object):
 
         # Return configuration values from file.
         if args.conf:
-            config_parser = ConfigParser.SafeConfigParser()
+            config_parser = configparser.SafeConfigParser()
             config_parser.read([args.conf])
 
             return dict(config_parser.items('config'))
@@ -883,7 +883,7 @@ class BittrexApiRequest(object):
 
         # Create query string from parameter items.
         query_str = []
-        for name, value in params.iteritems():
+        for name, value in params.items():
             query_str.append(name + '=' + str(value))
 
         # Format the URL with query string.
@@ -910,11 +910,11 @@ class BittrexApiRequest(object):
         res = req.json()
 
         if res is None:
-            print >> sys.stderr, 'Script failure: Connection timeout'
+            print('Script failure: Connection timeout', file=sys.stderr)
             sys.exit(1)
 
         if res['success'] is False:
-            print >> sys.stderr, "Bittex response: %s" % res['message']
+            print("Bittex response: %s" % res['message'], file=sys.stderr)
             sys.exit(1)
 
         # Return list of dicts.
@@ -945,5 +945,5 @@ if __name__ == '__main__':
 
     # Let's get this party started.
     BittrexAutoTrader(
-        BittrexAutoTraderConfig.values()
+        list(BittrexAutoTraderConfig.values())
     ).run()
