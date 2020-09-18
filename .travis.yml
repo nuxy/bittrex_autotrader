@@ -1,13 +1,7 @@
 language: python
 python:
-  - "2.6"
-  - "2.7"
-  - "3.2"
-  - "3.3"
-  - "3.4"
-  - "3.5"
   - "3.6"
 install:
-  - pip install -r requirements.txt
+  - pip3 install -r requirements.txt
 script:
   - python bittrex_autotrade.py -k KEY -s SECRET
