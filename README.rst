@@ -125,20 +125,6 @@ Developer Notes
    priced out of a market, so choose wisely.
 -  Based on the defined ``spread`` you can gain/lose units of value. I
    take no responsiblity for your losses.
--  New features will be added when I have free time available. You can
-   motivate me by *donating* below.
-
-Donations
----------
-
-If you find this script to be helpful in any way, buy me a beer using
-one of the cryptocurrencies below:
-
-::
-
-    Bitcoin:  1Cvr9aHNmV2riULkfgEqofQtuhxCBe7A16
-    Litecoin: LcMKbewQftytYnmsGTk63BW7yPCnUKFNni
-    Digibyte: DPZNoKrH8wmY7QfR5aWrh84JheE4KwWsge
 
 License and Warranty
 --------------------
