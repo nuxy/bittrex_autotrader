@@ -25,23 +25,20 @@ import configparser
 import csv
 import hashlib
 import hmac
-import humanfriendly
 import io
+import sys
+import time
+import humanfriendly
 import numpy
 import pkg_resources
 import requests
-import sys
-import time
-
-SELL = 'SELL'
-BUY = 'BUY'
 
 #
-# Bittrex API autotrader object.
+# Bittrex API autotrader.
 #
-class BittrexAutoTrader(object):
+class BittrexAutoTrader:
     """
-    Bittrex API autotrader object.
+    Bittrex API autotrader.
 
     Dependencies:
         humanfriendly
@@ -60,8 +57,8 @@ class BittrexAutoTrader(object):
                 Dictionary of options.
 
         Attributes:
-            apiReq (BittrexApiRequest):
-                Instance of BittrexApiRequest object.
+            api_req (BittrexApiRequest):
+                Instance of BittrexApiRequest.
             market (str):
                 String literal for the market (ie. BTC-LTC).
             units (float):
@@ -75,13 +72,13 @@ class BittrexAutoTrader(object):
             prompt (bool):
                 Require user interaction to begin trading.
         """
-        self.apiReq = BittrexApiRequest(options['apikey'], options['secret'])
-        self.market = options['market']
-        self.units  = options['units']
-        self.spread = options['spread'].split('/')
-        self.method = options['method']
-        self.delay  = options['delay']
-        self.prompt = options['prompt']
+        self.api_req = BittrexApiRequest(options['apikey'], options['secret'])
+        self.market  = options['market']
+        self.units   = options['units']
+        self.spread  = options['spread'].split('/')
+        self.method  = options['method']
+        self.delay   = options['delay']
+        self.prompt  = options['prompt']
 
         # List of orders as dictionary items.
         self._orders = []
@@ -91,7 +88,7 @@ class BittrexAutoTrader(object):
         Get open orders, prompt if necessary / determine next trade type and start trading.
         """
 
-        self._orders = self.apiReq.market_open_orders(self.market)
+        self._orders = self.api_req.market_open_orders(self.market)
 
         if not self._orders and self.prompt == 'True':
             prompt_choice = humanfriendly.prompts.prompt_for_choice(
@@ -104,16 +101,16 @@ class BittrexAutoTrader(object):
 
             next_trade = prompt_choice.split(' ', 1)[0]
         else:
-            next_trade = SELL
+            next_trade = 'SELL'
 
             if self._orders and self.last_order()['OrderType'] == 'LIMIT_SELL':
-                next_trade = BUY
+                next_trade = 'BUY'
 
         while True:
 
             # Check for open orders.
             if self._orders:
-                order = self.apiReq.account_order(
+                order = self.api_req.account_order(
                     self.last_order()['OrderUuid']
                 )
 
@@ -123,14 +120,14 @@ class BittrexAutoTrader(object):
 
                 #Allow user to cancel order remotely, recalculate and resubmit
                 if order['CancelInitiated']:
-                    next_trade = BUY if next_trade == SELL else SELL
+                    next_trade = 'BUY' if next_trade == 'SELL' else 'SELL'
 
             # Submit a new order.
             self.submit_order(next_trade)
 
-            next_trade = BUY if next_trade == SELL else SELL
+            next_trade = 'BUY' if next_trade == 'SELL' else 'SELL'
 
-    def submit_order(self, trade_type=BUY):
+    def submit_order(self, trade_type='BUY'):
         """
         Submit an order to the Bittrex API.
 
@@ -151,7 +148,7 @@ class BittrexAutoTrader(object):
             moving_avg = round(market_totals.mean(), 8)
 
         # Get current ASK/BID orders.
-        ticker = self.apiReq.public_ticker(self.market)
+        ticker = self.api_req.public_ticker(self.market)
 
         # Format human-friendly results.
         stdout = {
@@ -160,7 +157,7 @@ class BittrexAutoTrader(object):
         }
 
         # Perform trade operation.
-        if trade_type == BUY:
+        if trade_type == 'BUY':
 
             # Reinvest earnings.
             self._reinvest(float(ticker['Last']))
@@ -212,7 +209,7 @@ class BittrexAutoTrader(object):
             stdout['cols']
         ), "\n", time.strftime(' %Y-%m-%d %H:%M:%S '), "\n")
 
-    def market_totals(self, trade_type=BUY):
+    def market_totals(self, trade_type='BUY'):
         """
         Returns BUY/SELL order market totals as ndarray.
 
@@ -223,7 +220,7 @@ class BittrexAutoTrader(object):
         Returns:
             ndarray
         """
-        market_history = self.apiReq.public_market_history(self.market)
+        market_history = self.api_req.public_market_history(self.market)
 
         return BittrexAutoTrader._numpy_loadtxt(
             BittrexAutoTrader._list_of_dict_filter_by(
@@ -247,6 +244,8 @@ class BittrexAutoTrader(object):
             if not trade_type or trade_type in order['Type']:
                 return order
 
+        return None
+
     def last_buy_price(self):
         """
         Return the last successful BUY price.
@@ -254,7 +253,7 @@ class BittrexAutoTrader(object):
         Returns:
             float (default: 0)
         """
-        order = self.last_order(BUY)
+        order = self.last_order('BUY')
 
         return float(order['Price']) if order else 0
 
@@ -265,7 +264,7 @@ class BittrexAutoTrader(object):
         Returns:
             float (default: 0)
         """
-        order = self.last_order(SELL)
+        order = self.last_order('SELL')
 
         return float(order['Price']) if order else 0
 
@@ -308,12 +307,12 @@ class BittrexAutoTrader(object):
             trade_type (str):
                 BUY or SELL (default: SELL).
         """
-        if trade_type == BUY:
-            uuid = self.apiReq.market_buy_limit(
+        if trade_type == 'BUY':
+            uuid = self.api_req.market_buy_limit(
                 self.market, self.units, price
             )['uuid']
         else:
-            uuid = self.apiReq.market_sell_limit(
+            uuid = self.api_req.market_sell_limit(
                 self.market, self.units, price
             )['uuid']
 
@@ -385,20 +384,20 @@ class BittrexAutoTrader(object):
         return output.getvalue()
 
     @staticmethod
-    def _numpy_calc_sma(a, n):
+    def _numpy_calc_sma(arr, num):
         """
         Return Simple Moving Average for a given data sequence.
 
         Args:
-            a (list):
+            arr (list):
                 One-dimensional input array.
-            n (int):
+            num (int):
                 Number of days (n-day).
 
         Returns:
             list
         """
-        return numpy.convolve(a, numpy.ones((n,)) / n, mode='valid')
+        return numpy.convolve(arr, numpy.ones((num,)) / num, mode='valid')
 
     @staticmethod
     def _numpy_loadtxt(data, keys=None, converters=None):
@@ -440,11 +439,11 @@ class BittrexAutoTrader(object):
             time.sleep(seconds)
 
 #
-# Bittrex AutoTrader config object.
+# Bittrex AutoTrader config.
 #
-class BittrexAutoTraderConfig(object):
+class BittrexAutoTraderConfig:
     """
-    Bittrex AutoTrader config object.
+    Bittrex AutoTrader config.
     """
 
     @staticmethod
@@ -520,11 +519,10 @@ class BittrexAutoTraderConfig(object):
             '--version',
             action='version',
 
-            # pylint: disable=E1103
             version=pkg_resources.get_distribution('bittrex_autotrader').version
         )
 
-        args, remaining_args = arg_parser.parse_known_args()
+        args, _ = arg_parser.parse_known_args()
 
         # Return configuration values from file.
         if args.conf:
@@ -534,15 +532,14 @@ class BittrexAutoTraderConfig(object):
             return dict(config_parser.items('config'))
 
         # Return command-line argument values.
-        else:
-            return vars(args)
+        return vars(args)
 
 #
-# Bittrex API request object.
+# Bittrex API request.
 #
-class BittrexApiRequest(object):
+class BittrexApiRequest:
     """
-    Bittrex API request object.
+    Bittrex API request.
 
     Dependencies:
         requests
@@ -899,7 +896,7 @@ class BittrexApiRequest(object):
             headers['apisign'] = BittrexApiRequest._sign(self.secret, url)
 
         # Send the API request.
-        for i in range(BittrexApiRequest.CONNECT_RETRIES):
+        for _ in range(BittrexApiRequest.CONNECT_RETRIES):
             try:
                 req = requests.get(url, headers=headers)
             except requests.exceptions.ConnectionError:
