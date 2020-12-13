@@ -12,7 +12,7 @@ setup(
   url = 'https://github.com/nuxy/bittrex_autotrader',
   download_url = 'https://github.com/nuxy/bittrex_autotrader/archive/0.0.{0}.tar.gz'.format(version),
   keywords = ['trading-bot', 'api-client', 'cryptocurrency', 'bittrex'],
-  install_requires = ['humanfriendly >= 4.4.1', 'numpy >= 1.13.1', 'requests >= 2.20.0'],
+  install_requires = ['humanfriendly >= 9.0', 'numpy >= 1.19', 'requests >= 2.25'],
   scripts = ['bittrex_autotrader/bittrex_autotrader'],
   long_description = open('README.rst', 'r').read(),
 )
