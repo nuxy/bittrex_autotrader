@@ -26,6 +26,7 @@ import csv
 import hashlib
 import hmac
 import io
+import json
 import sys
 import time
 import humanfriendly
@@ -87,11 +88,10 @@ class BittrexAutoTrader:
         """
         Get open orders, prompt if necessary / determine next trade type and start trading.
         """
-
         self._orders = self.api_req.market_open_orders(self.market)
 
         if not self._orders and self.prompt == 'True':
-            prompt_choice = humanfriendly.prompts.prompt_for_choice(
+            prompt_choice = humanfriendly.prompt_for_choice(
                 [
                     'BUY in at markdown (need units to trade)',
                     'SELL out at markup (need liquidity)'
@@ -103,7 +103,7 @@ class BittrexAutoTrader:
         else:
             next_trade = 'SELL'
 
-            if self._orders and self.last_order()['OrderType'] == 'LIMIT_SELL':
+            if self._orders and self.last_order()['type'] == 'LIMIT_SELL':
                 next_trade = 'BUY'
 
         while True:
@@ -111,15 +111,15 @@ class BittrexAutoTrader:
             # Check for open orders.
             if self._orders:
                 order = self.api_req.account_order(
-                    self.last_order()['OrderUuid']
+                    self.last_order()['id']
                 )
 
-                if order['IsOpen']:
+                if order['status']:
                     BittrexAutoTrader._wait(seconds=float(self.delay))
                     continue
 
-                #Allow user to cancel order remotely, recalculate and resubmit
-                if order['CancelInitiated']:
+                # Allow user to cancel order remotely, recalculate and resubmit
+                if order['closed']:
                     next_trade = 'BUY' if next_trade == 'SELL' else 'SELL'
 
             # Submit a new order.
@@ -141,7 +141,7 @@ class BittrexAutoTrader:
 
         market_max = round(market_totals.max(), 8)
 
-        # Calculate Moving Average (TODO: weights).
+        # Calculate Moving Average (TODO: weighted average).
         if self.method == 'weighted':
             moving_avg = round(market_totals.average(weights=None), 8)
         else:
@@ -160,13 +160,13 @@ class BittrexAutoTrader:
         if trade_type == 'BUY':
 
             # Reinvest earnings.
-            self._reinvest(float(ticker['Last']))
+            self._reinvest(float(ticker['lastTradeRate']))
 
             # Calculate markdown.
             markdown = BittrexAutoTrader._calc_decimal_percent(self.spread[1])
 
             # Submit limit BUY
-            ticker_bid = float(ticker['Bid'])
+            ticker_bid = float(ticker['bidRate'])
             trader_bid = round(
                 (ticker_bid - (ticker_bid * markdown)), 8
             )
@@ -174,7 +174,7 @@ class BittrexAutoTrader:
             stdout['rows'].append(['Avg', format(moving_avg, '.8f')])
             stdout['rows'].append(['Max', format(market_max, '.8f')])
             stdout['rows'].append(['Ask', format(ticker_bid, '.8f')])
-            stdout['rows'].append(['Bid', humanfriendly.terminal.ansi_wrap(
+            stdout['rows'].append(['Bid', humanfriendly.ansi_wrap(
                 format(trader_bid, '.8f'),
                 bold=True
             )])
@@ -186,7 +186,7 @@ class BittrexAutoTrader:
             markup = BittrexAutoTrader._calc_decimal_percent(self.spread[0])
 
             # Submit limit SELL
-            ticker_ask = float(ticker['Ask'])
+            ticker_ask = float(ticker['askRate'])
             trader_ask = round(
                 (ticker_ask + (ticker_ask * markup)), 8
             )
@@ -194,7 +194,7 @@ class BittrexAutoTrader:
             stdout['rows'].append(['Avg', format(moving_avg, '.8f')])
             stdout['rows'].append(['Max', format(market_max, '.8f')])
             stdout['rows'].append(['Bid', format(ticker_ask, '.8f')])
-            stdout['rows'].append(['Ask', humanfriendly.terminal.ansi_wrap(
+            stdout['rows'].append(['Ask', humanfriendly.ansi_wrap(
                 format(trader_ask, '.8f'),
                 bold=True
             )])
@@ -204,7 +204,7 @@ class BittrexAutoTrader:
         stdout['rows'].append(['Qty', format(float(self.units), '.8f')])
 
         # Output human-friendly results.
-        print(humanfriendly.tables.format_pretty_table(
+        print(humanfriendly.format_table(
             stdout['rows'],
             stdout['cols']
         ), "\n", time.strftime(' %Y-%m-%d %H:%M:%S '), "\n")
@@ -224,9 +224,9 @@ class BittrexAutoTrader:
 
         return BittrexAutoTrader._numpy_loadtxt(
             BittrexAutoTrader._list_of_dict_filter_by(
-                market_history, 'OrderType', trade_type
+                market_history, 'takerSide', trade_type
             ),
-            ['Price']
+            ['rate']
         )
 
     def last_order(self, trade_type=None):
@@ -241,7 +241,7 @@ class BittrexAutoTrader:
             dict
         """
         for order in reversed(self._orders):
-            if not trade_type or trade_type in order['Type']:
+            if not trade_type or trade_type in order['type']:
                 return order
 
         return None
@@ -255,7 +255,7 @@ class BittrexAutoTrader:
         """
         order = self.last_order('BUY')
 
-        return float(order['Price']) if order else 0
+        return float(order['price']) if order else 0
 
     def last_sell_price(self):
         """
@@ -266,7 +266,7 @@ class BittrexAutoTrader:
         """
         order = self.last_order('SELL')
 
-        return float(order['Price']) if order else 0
+        return float(order['price']) if order else 0
 
     def _reinvest(self, last_price):
         """
@@ -289,7 +289,7 @@ class BittrexAutoTrader:
                     (processed * BittrexAutoTrader.TRADE_FEES)) + earnings
 
                 # Output human-friendly results.
-                print(humanfriendly.terminal.ansi_wrap(
+                print(humanfriendly.ansi_wrap(
                     ''.join(['Total earnings: ', str(earnings)]),
                     bold=True
                 ), "\n")
@@ -310,17 +310,17 @@ class BittrexAutoTrader:
         if trade_type == 'BUY':
             uuid = self.api_req.market_buy_limit(
                 self.market, self.units, price
-            )['uuid']
+            )['id']
         else:
             uuid = self.api_req.market_sell_limit(
                 self.market, self.units, price
-            )['uuid']
+            )['id']
 
         self._orders.append({
-            'OrderUuid': uuid,
-            'Type': trade_type,
-            'Price': price,
-            'Quantity': self.units
+            'id': uuid,
+            'type': trade_type,
+            'price': price,
+            'quantity': self.units
         })
 
     @staticmethod
@@ -335,7 +335,9 @@ class BittrexAutoTrader:
         Returns:
             float
         """
-        return float(num) if float(num) < 1 else float(num) / 100
+        num = float(num)
+
+        return num if num < 1 else num / 100
 
     @staticmethod
     def _list_of_dict_filter_by(data, key, value):
@@ -435,7 +437,7 @@ class BittrexAutoTrader:
             timer (bool):
                 Show the elapsed time (default: False).
         """
-        with humanfriendly.terminal.spinners.AutomaticSpinner(label, show_time=timer):
+        with humanfriendly.AutomaticSpinner(label, show_time=timer):
             time.sleep(seconds)
 
 #
@@ -518,7 +520,6 @@ class BittrexAutoTraderConfig:
         arg_parser.add_argument(
             '--version',
             action='version',
-
             version=pkg_resources.get_distribution('bittrex_autotrader').version
         )
 
@@ -526,7 +527,7 @@ class BittrexAutoTraderConfig:
 
         # Return configuration values from file.
         if args.conf:
-            config_parser = configparser.SafeConfigParser()
+            config_parser = configparser.ConfigParser()
             config_parser.read([args.conf])
 
             return dict(config_parser.items('config'))
@@ -546,7 +547,7 @@ class BittrexApiRequest:
     """
 
     # Bittrex API URL
-    BASE_URL = 'https://bittrex.com/api/v1.1/'
+    BASE_URL = 'https://api.bittrex.com/v3'
 
     # Total retries on failed connection.
     CONNECT_RETRIES = 10
@@ -579,8 +580,10 @@ class BittrexApiRequest:
 
         Returns:
             list
+
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Market
         """
-        return self.get('public/getmarkets')
+        return self.get('markets')
 
     def public_currencies(self):
         """
@@ -588,23 +591,25 @@ class BittrexApiRequest:
 
         Returns:
             list
-        """
-        return self.get('public/getcurrencies')
 
-    def public_ticker(self, market):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Currency
+        """
+        return self.get('currencies')
+
+    def public_ticker(self, market_symbol):
         """
         Get the current tick values for a market.
 
         Args:
-            market (str):
+            market_symbol (str):
                 String literal (ie. BTC-LTC).
 
         Returns:
             list
+
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Ticker
         """
-        return self.get('public/getticker', {
-            'market': market
-        })
+        return self.get(f'markets/{market_symbol}/ticker')
 
     def public_market_summaries(self):
         """
@@ -612,63 +617,66 @@ class BittrexApiRequest:
 
         Returns:
             list
-        """
-        return self.get('public/getmarketsummaries')
 
-    def public_market_summary(self, market):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/MarketSummary
+        """
+        return self.get('markets/summaries')
+
+    def public_market_summary(self, market_symbol):
         """
         Get the last 24 hour summary of all active exchanges.
 
         Args:
-            market (str):
+            market_symbol (str):
                 String literal (ie. BTC-LTC). If omitted, return all markets.
 
         Returns:
             list
-        """
-        return self.get('public/getmarketsummary', {
-            'market': market
-        })
 
-    def public_market_history(self, market):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/MarketSummary
+        """
+        return self.get(f'markets/{market_symbol}/summary')
+
+    def public_market_history(self, market_symbol):
         """
         Get the latest trades that have occured for a specific market.
 
         Args:
-            market (str):
+            market_symbol (str):
                 String literal (ie. BTC-LTC). If omitted, return all markets.
 
         Returns:
             list
-        """
-        return self.get('public/getmarkethistory', {
-            'market': market
-        })
 
-    def public_order_book(self, market, book_type):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Trade
+        """
+        return self.get(f'markets/{market_symbol}/trades')
+
+    def public_order_book(self, market_symbol, depth=25):
         """
         Get the orderbook for a given market.
 
         Args:
-            market (str):
+            market_symbol (str):
                 String literal (ie. BTC-LTC). If omitted, return all markets.
-            book_type (str):
-                Buy, sell or both to identify the type of orderbook.
+            depth (int):
+                Maximum depth to return (allowed values are [1, 25, 500])
 
         Returns:
             list
+
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/OrderBook
         """
-        return self.get('public/getorderbook', {
-            'market': market,
-            'type': book_type
+        return self.get(f'markets/{market_symbol}/orderbook', {
+            'depth': depth
         })
 
-    def market_buy_limit(self, market, quantity, rate):
+    def market_buy_limit(self, market_symbol, quantity, rate, time_in_force='GOOD_TIL_CANCELLED'):
         """
         Send a buy order in a specific market.
 
         Args:
-            market (str):
+            market_symbol (str):
                 String literal (ie. BTC-LTC). If omitted, return all markets.
             quantity (float):
                 The amount to purchase.
@@ -677,19 +685,24 @@ class BittrexApiRequest:
 
         Returns:
             list
-        """
-        return self.get('market/buylimit', {
-            'market': market,
-            'quantity': quantity,
-            'rate': rate
-        }, signed=True)
 
-    def market_sell_limit(self, market, quantity, rate):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Order
+        """
+        return self.post('orders', {
+            'marketSymbol': market_symbol,
+            'direction': 'BUY',
+            'type': 'LIMIT',
+            'quantity': quantity,
+            'limit': rate,
+            'timeInForce': time_in_force
+        }, auth=True)
+
+    def market_sell_limit(self, market_symbol, quantity, rate, time_in_force='GOOD_TIL_CANCELLED'):
         """
         Send a sell order in a specific market.
 
         Args:
-            market (str):
+            market_symbol (str):
                 String literal (ie. BTC-LTC). If omitted, return all markets.
             quantity (float):
                 The amount to sell.
@@ -698,39 +711,46 @@ class BittrexApiRequest:
 
         Returns:
             list
-        """
-        return self.get('market/selllimit', {
-            'market': market,
-            'quantity': quantity,
-            'rate': rate
-        }, signed=True)
 
-    def market_cancel(self, uuid):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Order
+        """
+        return self.post('orders', {
+            'marketSymbol': market_symbol,
+            'direction': 'SELL',
+            'type': 'LIMIT',
+            'quantity': quantity,
+            'limit': rate,
+            'timeInForce': time_in_force
+        }, auth=True)
+
+    def market_cancel(self, orderid):
         """
         Send a cancel a buy or sell order.
 
         Args:
-            uuid (str):
-                UUID of buy or sell order.
-        """
-        return self.get('market/cancel', {
-            'uuid': uuid
-        }, signed=True)
+            orderid (str):
+                ID of buy or sell order.
 
-    def market_open_orders(self, market):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Order
+        """
+        return self.delete(f'orders/{orderid}', auth=True)
+
+    def market_open_orders(self, market_symbol):
         """
         Get all orders that you currently have opened.
 
         Args:
-            market (str):
+            market_symbol (str):
                 String literal (ie. BTC-LTC). If omitted, return all markets.
 
         Returns:
             list
+
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Order
         """
-        return self.get('market/getopenorders', {
-            'market': market
-        }, signed=True)
+        return self.get('orders/open', {
+            'marketSymbol': market_symbol
+        }, auth=True)
 
     def account_balances(self):
         """
@@ -738,167 +758,249 @@ class BittrexApiRequest:
 
         Returns:
             list
-        """
-        return self.get('account/getbalances', signed=True)
 
-    def account_balance(self, currency):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Balance
+        """
+        return self.get('balances', auth=True)
+
+    def account_balance(self, currency_symbol):
         """
         Get the balance from your account for a specific currency.
 
         Args:
-            currency (float):
+            currency_symbol (str):
                 String literal (ie. BTC). If omitted, return all currency.
 
         Returns:
             list
-        """
-        return self.get('account/getbalance', {
-            'currency': currency
-        }, signed=True)
 
-    def account_deposit_address(self, currency):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Balance
+        """
+        return self.get(f'balances/{currency_symbol}', auth=True)
+
+    def account_deposit_address(self, currency_symbol):
         """
         Get existing, or generate new address for a specific currency.
 
         Args:
-            currency (float):
+            currency_symbol (str):
                 String literal (ie. BTC). If omitted, return all currency.
 
         Returns:
             list
-        """
-        return self.get('account/getdepositaddress', {
-            'currency': currency
-        }, signed=True)
 
-    def account_withdraw(self, currency, quantity, address, paymentid):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Address
+        """
+        return self.get(f'addresses/{currency_symbol}', auth=True)
+
+    def account_withdraw(self, currency_symbol, quantity, crypto_address, paymentid):
         """
         Send request to withdraw funds from your account.
 
         Args:
-            currency (float):
+            currency_symbol (str):
                 String literal (ie. BTC). If omitted, return all currency.
             quantity (str):
                 The amount to withdrawl.
-            address (str):
+            crypto_address (str):
                 The address where to send the funds.
             paymentid (str):
                 CryptoNotes/BitShareX/Nxt field (memo/paymentid optional).
 
         Returns:
             list
-        """
-        return self.get('account/getwithdraw', {
-            'currency': currency,
-            'quantity': quantity,
-            'address': address,
-            'paymentid': paymentid
-        }, signed=True)
 
-    def account_order(self, uuid):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Withdrawal
         """
-        Get a single order by uuid.
+        return self.post('withdrawals', {
+            'currencySymbol': currency_symbol,
+            'quantity': quantity,
+            'cryptoAddress': crypto_address,
+            'cryptoAddressTag': paymentid
+        }, auth=True)
+
+    def account_order(self, orderid):
+        """
+        Get a single order by ID.
 
         Args:
-            uuid (str):
-                UUID of buy or sell order.
+            orderid (str):
+                ID of buy or sell order.
 
         Return:
             list
-        """
-        return self.get('account/getorder', {
-            'uuid': uuid
-        }, signed=True)
 
-    def account_order_history(self, market):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Order
+        """
+        return self.get(f'orders/{orderid}', auth=True)
+
+    def account_order_history(self, market_symbol):
         """
         Get order history.
 
         Args:
-            market (str):
+            market_symbol (str):
                 String literal (ie. BTC-LTC). If omitted, return all markets.
 
         Returns:
             list
-        """
-        return self.get('account/getorderhistory', {
-            'market': market
-        }, signed=True)
 
-    def account_deposit_history(self, currency):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Order
+        """
+        return self.get('orders/closed', {
+            'marketSymbol': market_symbol
+        }, auth=True)
+
+    def account_deposit_history(self, currency_symbol):
         """
         Get deposit history.
 
         Args:
-            currency (float):
+            currency_symbol (str):
                 String literal (ie. BTC). If omitted, return all currency.
 
         Returns:
             list
-        """
-        return self.get('account/getdeposithistory', {
-            'currency': currency
-        }, signed=True)
 
-    def account_withdrawl_history(self, currency):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Withdrawal
+        """
+        return self.get('deposits/closed', {
+            'currencySymbol': currency_symbol
+        }, auth=True)
+
+    def account_withdrawl_history(self, currency_symbol):
         """
         Get withdrawl history.
 
         Args:
-            currency (float):
+            currency_symbol (str):
                 String literal (ie. BTC). If omitted, return all currency.
 
         Returns:
             list
-        """
-        return self.get('account/getwithdrawlhistory', {
-            'currency': currency
-        }, signed=True)
 
-    def get(self, method, params=dict, headers=None, signed=False):
+        .. seealso:: https://bittrex.github.io/api/v3#/definitions/Withdrawal
+        """
+        return self.get('withdrawals/closed', {
+            'currencySymbol': currency_symbol
+        }, auth=True)
+
+    def get(self, uri, params=None, headers=None, auth=False):
+        """
+        Construct and send a HTTP GET request to the Bittrex API.
+
+        Args:
+            uri (str):
+                URI that references an API service.
+            params (dict):
+                Dictionary that contains HTTP request name/value parameters (optional).
+            headers (dict):
+                Dictionary that contains HTTP request header key/values (optional).
+            auth (bool):
+                Authenticate with a signed request (default: False).
+
+        Returns:
+            list
+        """
+        return self.send_request('GET', uri, params, headers, auth)
+
+    def post(self, uri, body=None, headers=None, auth=False):
+        """
+        Construct and send a HTTP POST request to the Bittrex API.
+
+        Args:
+            uri (str):
+                URI that references an API service.
+            body (dict):
+                Dictionary that contains HTTP request body key/values (optional).
+            headers (dict):
+                Dictionary that contains HTTP request header key/values (optional).
+            auth (bool):
+                Authenticate with a signed request (default: False).
+
+        Returns:
+            list
+        """
+        return self.send_request('POST', uri, body, headers, auth)
+
+    def delete(self, uri, body=None, headers=None, auth=False):
+        """
+        Construct and send a HTTP DELETE request to the Bittrex API.
+
+        Args:
+            uri (str):
+                URI that references an API service.
+            body (dict):
+                Dictionary that contains HTTP request body key/values (optional).
+            headers (dict):
+                Dictionary that contains HTTP request header key/values (optional).
+            auth (bool):
+                Authenticate with a signed request (default: False).
+
+        Returns:
+            list
+        """
+        return self.send_request('DELETE', uri, body, headers, auth)
+
+    def send_request(self, method, uri, values=None, headers=None, auth=False):
         """
         Construct and send a HTTP request to the Bittrex API.
 
         Args:
             method (str):
-                URI resource that references an API service.
-            params (dict):
-                Dictionary that contains name/value parameters (optional).
+                HTTP request method (e.g. GET, POST, DELETE).
+            uri (str):
+                URI that references an API service.
+            values (dict):
+                Dictionary that contains request values (optional).
             headers (dict):
                 Dictionary that contains HTTP header key/values (optional).
-            signed (bool):
-                Authenticate using a signed header (optional).
+            auth (bool):
+                Authenticate with a signed request (default: False).
 
         Returns:
             list
         """
+        url = BittrexApiRequest.BASE_URL + '/' + uri
 
-        # Add parameters required for signed requests.
-        if signed is True:
-            params['apikey'] = self.apikey
-            params['nonce'] = str(int(time.time()))
+        data = ''
 
-        # Create query string from parameter items.
-        query_str = []
-        for name, value in params.items():
-            query_str.append(name + '=' + str(value))
+        if method == 'GET':
+            if values:
+                url += BittrexApiRequest._create_query_str(values)
+        else:
+            data = json.dumps(values)
 
-        # Format the URL with query string.
-        uri = [BittrexApiRequest.BASE_URL + method]
-        uri.append('?' + '&'.join(query_str))
-        url = ''.join(uri)
+        req = None
 
-        # Create the signed HTTP header.
-        if headers is None:
-            headers = {}
-
-        if signed is True:
-            headers['apisign'] = BittrexApiRequest._sign(self.secret, url)
-
-        # Send the API request.
         for _ in range(BittrexApiRequest.CONNECT_RETRIES):
+
+            # Sign authentication requests.
+            if auth is True:
+                timestamp = str(round(time.time() * 1000))
+
+                content_hash = BittrexApiRequest._hash_content(data)
+
+                signature = BittrexApiRequest._sign_request(
+                    self.secret, method, url, timestamp, content_hash
+                )
+
+                if headers is None:
+                    headers = {}
+
+                headers['Api-Key']          = self.apikey
+                headers['Api-Timestamp']    = timestamp
+                headers['Api-Signature']    = signature
+                headers['Api-Content-Hash'] = content_hash
+
             try:
-                req = requests.get(url, headers=headers)
+                if method == 'GET':
+                    req = requests.get(url, headers=headers)
+                else:
+                    req = requests.request(
+                        method, url, json=values, headers=headers
+                    )
+
             except requests.exceptions.ConnectionError:
                 time.sleep(BittrexApiRequest.CONNECT_WAIT)
             else:
@@ -908,32 +1010,72 @@ class BittrexApiRequest:
 
         if res is None:
             print('Script failure: Connection timeout', file=sys.stderr)
+
             sys.exit(1)
 
-        if res['success'] is False:
-            print("Bittex response: %s" % res['message'], file=sys.stderr)
+        if req.status_code != 200:
+            print("Bittex response: %s" % res['code'], file=sys.stderr)
+
             sys.exit(1)
 
         # Return list of dicts.
-        return res['result']
+        return res
 
     @staticmethod
-    def _sign(secret, message):
+    def _create_query_str(data):
         """
-        Return signed message using the HMAC algorithm.
+        Returns a query string of name/value pairs.
+
+        Args:
+            data (dict):
+                Dictionary that contains request data.
+
+        Returns:
+            str
+        """
+        params = []
+        for name, value in data.items():
+            params.append(name + '=' + str(value))
+
+        return '?' + '&'.join(params)
+
+    @staticmethod
+    def _hash_content(data):
+        """
+        Returns hex-encoded SHA-512 hash for the given data.
+
+        Args:
+            data (dict):
+                Dictionary that contains request data.
+
+        Returns:
+            str
+        """
+        return hashlib.sha512(str(data).encode('utf-8')).hexdigest()
+
+    @staticmethod
+    def _sign_request(secret, method, url, timestamp, content_hash=None):
+        """
+        Returns signed request using the HMAC SHA-512 algorithm.
 
         Args:
             secret (str):
                 Bittrex issued API secret.
-            message (str):
-                Message to convert.
+            method (str):
+                HTTP request method (e.g. GET, POST, DELETE).
+            url (str):
+                Request URL (including query string).
+            timestamp (str):
+                Epoch timestamp in milliseconds.
+            content_hash (str):
+                Hex-encoded SHA-512 hash of the request body (optional).
 
         Returns:
             str
-
-        .. seealso:: https://www.bittrex.com/Manage#sectionApi
         """
-        return hmac.new(secret, message, hashlib.sha512).hexdigest()
+        message = f'{timestamp}{url}{method}{content_hash}'
+
+        return hmac.new(secret.encode('utf-8'), message.encode('utf-8'), hashlib.sha512).hexdigest()
 
 #
 # Start program.
@@ -942,5 +1084,5 @@ if __name__ == '__main__':
 
     # Let's get this party started.
     BittrexAutoTrader(
-        list(BittrexAutoTraderConfig.values())
+        BittrexAutoTraderConfig.values()
     ).run()
