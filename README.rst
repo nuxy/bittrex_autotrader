@@ -22,6 +22,9 @@ documentation, and create a source distribution:
 ::
 
     $ make
+    $ make lint
+    $ make docs
+    $ make dist
 
 Configuration options
 ---------------------
@@ -56,7 +59,7 @@ To run the script:
 
 ::
 
-    $ ./bittrex_autotrader.py --conf bittrex_autotrader.conf
+    $ bittrex_autotrader --conf bittrex_autotrader.conf
 
 Assuming there are no open orders, the default configuration requires
 the user to decide the first type of trade;
@@ -88,7 +91,7 @@ Running as a service
 ~~~~~~~~~~~~~~~~~~~~
 
 If you wish to automate the running of the script (using
-`Supervisor <http://supervisord.org/>`__ for example), set the 'prompt'
+`Supervisor <http://supervisord.org>`__ for example), set the 'prompt'
 configuration option to 'False'.
 
 On startup, the script will automatically check for an open order and
@@ -99,12 +102,12 @@ If you do not have any open orders it will initiate a 'SELL' order by
 default. If you do not have enough funds to carry out this operation,
 the script will end.
 
-Bittrex API
------------
+Bittrex API (v3)
+----------------
 
-Outside of the basic trading functionality a full implementation of the
-Bittrex API has been provided for those would want to extend this
-script. Runnning ``make`` will generate the class HTML documentation.
+Outside of the basic trading functionality a partial implementation of
+the Bittrex API has been provided for those would want to extend this
+script.
 
 Usage Example
 ~~~~~~~~~~~~~
@@ -113,12 +116,12 @@ Usage Example
 
     #!/usr/bin/env python3.6
 
-    from bittrex_autotrader import BittrexApiRequest
+    from bittrex_autotrader.request import BittrexApiRequest
 
-    apiReq = BittrexApiRequest(apikey, secret)
-    ticker = apiReq.public_ticker(market)
+    api_req = BittrexApiRequest(api_key, secret)
+    ticker  = api_req.public_ticker(market)
 
-    print ticker['Ask']
+    print ticker['askRate']
 
 Developer Notes
 ---------------
