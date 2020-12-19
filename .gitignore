@@ -1,6 +1,7 @@
+bin
 bittrex_autotrader
 bittrex_autotrader.conf
 bittrex_autotrader.egg-info
 bittrex_autotrader.html
-bittrex_autotrader.pyc
+bittrex_autotrader/__pycache__
 dist

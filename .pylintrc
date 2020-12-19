@@ -1,7 +1,4 @@
 [DESIGN]
-generated-members=humanfriendly
 max-attributes=8
 max-args=6
-
-[MESSAGES CONTROL]
-disable=C0302,E1121,R0903,R0904
+max-public-methods=25

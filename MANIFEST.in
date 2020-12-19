@@ -1,4 +1,5 @@
 include setup.cfg
 include setup.py
-include bittrex_autotrader/__init__.py
-include bittrex_autotrader/bittrex_autotrader
+include bittrex_autotrader/__main__.py
+include bittrex_autotrader/config.py
+include bittrex_autotrader/request.py

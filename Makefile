@@ -5,9 +5,8 @@ lint:
 	pylint bittrex_autotrader
 
 docs:
-	python3.6 -m pydoc -w bittrex_autotrader
+	python3.6 -m pydoc -w bittrex_autotrader/request.py
 
 dist:
-	mkdir bittrex_autotrader && touch bittrex_autotrader/__init__.py
-	cp bittrex_autotrader.py bittrex_autotrader/bittrex_autotrader
-	python3 setup.py sdist
+	mkdir bin && cp bittrex_autotrader/__main__.py bin/bittrex_autotrader
+	python3.6 setup.py sdist
